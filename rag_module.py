@@ -19,11 +19,12 @@ load_dotenv()
 
 class ResilientRAGChain:
     """
-    고신뢰성 RAG 체인 래퍼:
-    1. 멀티턴 대화 맥락 재작성 (Query Contextualization)
-    2. LLM 기반 동적 역질문 판단 (Clarification Loop)
-    3. 유사도 임계치 기반 가드레일 (Similarity Score Guardrail)
-    4. 투명한 LLM 장애 Fallback (허위 CoT 응답 방지)
+    고신뢰성 Enterprise RAG 파이프라인 래퍼:
+    1. Query Contextualization: 멀티턴 대화 맥락 유지 및 대명사 쿼리 자동 재작성
+    2. Dynamic Clarification Loop: 모호한 질의 시 3가지 세부 관점 선택지 동적 생성
+    3. Similarity Guardrail: FAISS L2 Distance 임계치(1.45) 기반 환각(Hallucination) 사전 차단
+    4. Transparent Fallback: LLM API 장애 시 원문 근거 중심 안전 예외 처리
+    5. Audit & Metric Logging: 실시간 유사도 거리 및 처리 레이턴시 모니터링
     """
     def __init__(self, base_chain, vectorstore, retriever, llm, distance_threshold=1.45):
         self.base_chain = base_chain
