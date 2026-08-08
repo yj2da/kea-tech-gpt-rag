@@ -15,7 +15,8 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 
 # [1단계] 환경 변수 로드 (.env 파일에서 GOOGLE_API_KEY 및 GROQ_API_KEY 불러오기)
-load_dotenv()
+env_path = os.path.join(os.path.dirname(__file__), ".env")
+load_dotenv(dotenv_path=env_path, override=True)
 
 class ResilientRAGChain:
     """
@@ -190,7 +191,13 @@ class ResilientRAGChain:
 
         # LLM 실행 시도 (Gemini 또는 Groq)
         try:
+            llm_type = type(self.llm).__name__
+            model_info = getattr(self.llm, 'model_name', getattr(self.llm, 'model', 'Groq Llama 3.3'))
+            print(f"\n[INFO] RAG Inference Engine Active: {llm_type} ({model_info})", flush=True)
+            t0 = time.time()
             ans = self.base_chain.invoke(query_for_search)
+            t_elapsed = time.time() - t0
+            print(f"[STATUS] Inference completed successfully in {t_elapsed:.2f}s via {llm_type} (Status: Operational)", flush=True)
             return {
                 "answer": ans,
                 "docs": docs,
@@ -199,7 +206,7 @@ class ResilientRAGChain:
                 "low_relevance": False
             }
         except Exception as e:
-            # 투명한 장애 Fallback: LLM API Quota / Network 에러 시 원문 그대로 반환 (허위 CoT 금지)
+            # 투명한 장애 Fallback: LLM API Quota / Key / Network 에러 시 원문 그대로 반환 (허위 CoT 금지)
             summary_snippets = []
             evidence_snippets = []
             for idx, doc in enumerate(docs, 1):
@@ -213,8 +220,14 @@ class ResilientRAGChain:
             s_text = "\n".join(summary_snippets)
             e_text = "\n".join(evidence_snippets)
 
-            fallback_response = f"""**[시스템 안내: LLM API 호출 불가 / Quota 제한 - FAISS 원문 근거 반환]**
-*Google Gemini API 연동 장애로 인해 LLM 추론 답변 대신 FAISS 벡터DB에서 정밀 검색된 상위 원문 청크를 반환합니다.*
+            err_str = str(e)
+            if "invalid" in err_str.lower() or "401" in err_str or "api_key" in err_str.lower() or "key" in err_str.lower():
+                reason_msg = "LLM API Key가 설정되지 않았거나 유효하지 않습니다. (.env 파일에 실제 GROQ_API_KEY 또는 GOOGLE_API_KEY를 입력해 주세요)"
+            else:
+                reason_msg = f"LLM 서비스 API 호출 중 오류가 발생하였습니다. ({err_str[:120]})"
+
+            fallback_response = f"""**[시스템 안내: LLM API 호출 불가 - FAISS 원문 근거 반환]**
+*{reason_msg}*
 
 ### [EXECUTIVE SUMMARY (원문 추출 요약)]
 {s_text}
@@ -230,7 +243,7 @@ class ResilientRAGChain:
             }
 
 
-def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_name="gemini-2.0-flash", temperature=0.0, distance_threshold=1.45, response_format="표준 보고서 모드"):
+def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_name="llama-3.3-70b-versatile (Groq 100% 무료)", temperature=0.0, distance_threshold=1.45, response_format="간략 요약 모드"):
     """
     업로드된 PDF 문서를 읽어 FAISS 벡터DB 인덱싱 후, LLM 기반 RAG 체인을 구축합니다.
     """
@@ -299,7 +312,7 @@ def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_nam
     # 3가지 표준 답변 양식 분기 지정
     if "간략" in response_format:
         format_structure = """# [출력 보고서 양식]:
-질문에 대한 핵심 결론과 답변만 1~3문장으로 군더더기 없이 간결하고 명쾌하게 답변하세요. 헤더나 별도 구분선 없이 답변 본문만 작성하세요."""
+질문에 대한 핵심 결론과 답변만 1~3문장으로 군더더기 없이 간결하고 명쾌하게 답변하세요. 헤더, 별도 구분선, 참고 문헌 및 페이지 번호 언급(Page X, 참고문헌 참조 등)은 절대로 답변 본문에 작성하지 말고 순수 답변 내용만 출력하세요."""
     elif "심층" in response_format:
         format_structure = """# [출력 보고서 양식]:
 ### 배경 및 개요
@@ -311,10 +324,7 @@ def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_nam
 - **분석 항목 3**: (팩트 중심 세부 내용 서술)
 
 ### 종합 결론 및 시사점
-- (분석 결과를 종합한 결론 및 시사점 정리)
-
-### 근거 문서 출처
-- 참고 위치: Page X, Page Y (발췌 단락 N)"""
+- (분석 결과를 종합한 결론 및 시사점 정리)"""
     else:
         format_structure = """# [출력 보고서 양식]:
 ### 핵심 분석 결과
@@ -323,19 +333,16 @@ def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_nam
 ### 상세 분석 내용
 - **주요 파악 사항 1**: (팩트 중심 세부 내용 서술)
 - **주요 파악 사항 2**: (팩트 중심 세부 내용 서술)
-- **주요 파악 사항 3**: (팩트 중심 세부 내용 서술)
-
-### 근거 문서 출처
-- 참고 위치: Page X, Page Y (발췌 단락 N)"""
+- **주요 파악 사항 3**: (팩트 중심 세부 내용 서술)"""
 
     # [6단계] Prompt Template 정의
     template = f"""당신은 한국전자정보통신산업진흥회(KEA) 수석 기술 분석가로서 업로드된 기술 명세서 및 보고서를 바탕으로 정밀 답변을 작성하는 전문가입니다.
 
 답변 지침:
 1. 근거 기반 분석 (Zero-Hallucination): 아래 제공된 [참고 문서 단락] 내용에만 철저히 근거하여 답변하세요. 문서에 명시되지 않은 사항은 추측하거나 왜곡하지 마세요.
-2. 한국어 답변 작성: 질문 답변, 요약, 상세 설명, 출처 표기까지 모든 내용은 **반드시 100% 한국어(Korean)**로 자연스럽고 매끄럽게 작성하세요.
-3. 가독성 중심 가공: 답답하고 딱딱한 대괄호 헤더 대신, 한눈에 파악하기 쉬운 깔끔한 서식(핵심 한 줄 요약, 항목별 불렛포인트, 볼드체 강조)을 활용하세요.
-4. 정확한 출처 인용: 답변 마지막 부분에 참고한 문서의 정확한 페이지 번호(Page)를 명시하세요.
+2. 한국어 답변 작성: 질문 답변, 요약, 상세 설명 등 모든 내용은 **반드시 100% 한국어(Korean)**로 자연스럽고 매끄럽게 작성하세요.
+3. 가독성 중심 가공: 한눈에 파악하기 쉬운 깔끔한 서식(핵심 한 줄 요약, 항목별 불렛포인트, 볼드체 강조)을 활용하세요.
+4. 페이지 번호 및 출처 문구 작성 금지: 페이지 번호(Page X)나 "참고한 문서의 페이지 번호는..." 같은 출처 문구는 시스템에서 하단 캡션으로 표시하므로 답변 본문에는 절대로 포함하지 마세요.
 5. 어조: 격식 있고 깔끔하며 직관적인 기업 보고서 스타일을 유지하세요. 이모지는 사용하지 마세요.
 
 # [참고 문서 단락]:
@@ -352,41 +359,57 @@ def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_nam
     # [7단계] LLM 모델 바인딩 (Groq Llama 3.3, Google Gemini & Ollama 로컬 LLM 온프레미스 지원)
     google_api_key = os.getenv("GOOGLE_API_KEY")
     groq_api_key = os.getenv("GROQ_API_KEY")
-    
+
+    def is_valid_key(key):
+        return bool(key and isinstance(key, str) and not key.startswith("your_") and len(key.strip()) > 10)
+
+    valid_groq = is_valid_key(groq_api_key)
+    valid_google = is_valid_key(google_api_key)
+
     if "ollama" in model_name.lower() or "로컬" in model_name.lower():
         try:
             from langchain_community.chat_models import ChatOllama
             llm = ChatOllama(model="llama3:latest", temperature=temperature)
         except Exception:
-            llm = ChatGroq(model_name="llama-3.3-70b-versatile", temperature=temperature, groq_api_key=groq_api_key)
-    elif groq_api_key or "llama" in model_name.lower() or "groq" in model_name.lower():
+            if valid_groq:
+                llm = ChatGroq(model_name="llama-3.3-70b-versatile", temperature=temperature, groq_api_key=groq_api_key)
+            elif valid_google:
+                llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=temperature, google_api_key=google_api_key)
+            else:
+                llm = ChatGroq(model_name="llama-3.3-70b-versatile", temperature=temperature, groq_api_key=groq_api_key or "invalid")
+    elif ("llama" in model_name.lower() or "groq" in model_name.lower()) and valid_groq:
         llm = ChatGroq(
             model_name="llama-3.3-70b-versatile",
             temperature=temperature,
             groq_api_key=groq_api_key
         )
-    else:
+    elif valid_google:
         valid_models = {
             "gemini-2.0-flash": "gemini-2.0-flash",
             "gemini-1.5-flash": "gemini-1.5-flash",
             "gemini-1.5-pro": "gemini-1.5-pro"
         }
         target_model = valid_models.get(model_name, "gemini-2.0-flash")
+        llm = ChatGoogleGenerativeAI(
+            model=target_model,
+            temperature=temperature,
+            google_api_key=google_api_key,
+            max_retries=1
+        )
+    elif valid_groq:
+        llm = ChatGroq(
+            model_name="llama-3.3-70b-versatile",
+            temperature=temperature,
+            groq_api_key=groq_api_key
+        )
+    else:
+        # 둘 다 없는 경우 Groq 또는 Gemini 기본 객체 생성 (invoke 시점 예외 처리)
+        if "groq" in model_name.lower() or "llama" in model_name.lower():
+            llm = ChatGroq(model_name="llama-3.3-70b-versatile", temperature=temperature, groq_api_key=groq_api_key or "invalid")
+        else:
+            llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=temperature, google_api_key=google_api_key or "invalid", max_retries=1)
 
-        try:
-            llm = ChatGoogleGenerativeAI(
-                model=target_model,
-                temperature=temperature,
-                google_api_key=google_api_key,
-                max_retries=1
-            )
-        except Exception:
-            if groq_api_key:
-                llm = ChatGroq(
-                    model_name="llama-3.3-70b-versatile",
-                    temperature=temperature,
-                    groq_api_key=groq_api_key
-                )
+    print(f"[INFO] Initialized LLM Engine: {type(llm).__name__} (Model: {model_name})", flush=True)
 
     def combine_docs(docs):
         combined = []

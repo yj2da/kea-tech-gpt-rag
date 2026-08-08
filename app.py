@@ -2,6 +2,47 @@ import streamlit as st
 import os
 import time
 import uuid
+import json
+from dotenv import load_dotenv
+
+env_path = os.path.join(os.path.dirname(__file__), ".env")
+load_dotenv(dotenv_path=env_path, override=True)
+
+SAVED_CHATS_FILE = os.path.join(os.path.dirname(__file__), "saved_chats.json")
+CURRENT_CHAT_FILE = os.path.join(os.path.dirname(__file__), "current_chat.json")
+
+def load_saved_chats():
+    if os.path.exists(SAVED_CHATS_FILE):
+        try:
+            with open(SAVED_CHATS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def save_chats_to_file(chats):
+    try:
+        with open(SAVED_CHATS_FILE, "w", encoding="utf-8") as f:
+            json.dump(chats, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+def load_current_chat():
+    if os.path.exists(CURRENT_CHAT_FILE):
+        try:
+            with open(CURRENT_CHAT_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def save_current_chat(messages):
+    try:
+        with open(CURRENT_CHAT_FILE, "w", encoding="utf-8") as f:
+            json.dump(messages, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
 from rag_module import create_rag_chain
 
 st.set_page_config(
@@ -58,6 +99,23 @@ st.markdown("""
         font-size: 0.85rem !important;
         box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25) !important;
         transition: all 0.2s ease !important;
+        white-space: nowrap !important;
+    }
+
+    /* Sidebar Recent Items Tight Spacing & Compact Buttons */
+    section[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] {
+        gap: 2px !important;
+        align-items: center !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] button {
+        padding: 2px 0px !important;
+        font-size: 0.76rem !important;
+        white-space: nowrap !important;
+        min-height: 28px !important;
+        height: 28px !important;
+        line-height: 1 !important;
+        box-shadow: none !important;
     }
 
     .stButton > button * {
@@ -168,12 +226,21 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 2. 세션 스테이트 초기화
+# 2. 세션 스테이트 초기화 (0: 새 채팅 모드, 1: 대화 불러오기 모드)
+if "session_mode" not in st.session_state:
+    st.session_state.session_mode = 0
+
+if "active_chat_id" not in st.session_state:
+    st.session_state.active_chat_id = None
+
 if "pending_clarification" not in st.session_state:
     st.session_state.pending_clarification = None
 
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    st.session_state.messages = load_current_chat()
+
+if "saved_chats" not in st.session_state:
+    st.session_state.saved_chats = load_saved_chats()
 
 # 3. 사이드바 - 문서 등록 및 RAG 모듈 제어 패널
 with st.sidebar:
@@ -185,18 +252,63 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("<h3 style='font-size: 1.0rem; font-weight: 800;'>📄 기술 문서 등록</h3>", unsafe_allow_html=True)
+    if st.button("새 채팅 시작", use_container_width=True, type="primary"):
+        if st.session_state.get("active_chat_id") and st.session_state.messages:
+            active_id = st.session_state.active_chat_id
+            for chat_item in st.session_state.saved_chats:
+                if chat_item["id"] == active_id:
+                    chat_item["messages"] = list(st.session_state.messages)
+                    chat_item["saved_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                    save_chats_to_file(st.session_state.saved_chats)
+                    break
+        st.session_state.session_mode = 0
+        st.session_state.active_chat_id = None
+        st.session_state.messages = []
+        save_current_chat([])
+        st.session_state.pending_clarification = None
+        st.toast("기존 대화를 자동 보관하고 새 대화를 시작합니다.")
+        st.rerun()
+
+    st.markdown("<h3 style='font-size: 0.95rem; font-weight: 800; margin-top: 14px; margin-bottom: 6px;'>기술 문서 등록</h3>", unsafe_allow_html=True)
     uploaded_file = st.file_uploader("PDF 문서 선택", type=['pdf'], label_visibility="collapsed")
     
     st.divider()
 
-    st.markdown("<h3 style='font-size: 1.0rem; font-weight: 800;'>RAG 제어 및 대화 관리</h3>", unsafe_allow_html=True)
-    
-    if st.button("대화 내역 초기화", use_container_width=True):
-        st.session_state.messages = []
-        st.session_state.pending_clarification = None
-        st.toast("대화 히스토리가 깨끗하게 초기화되었습니다.")
-        st.rerun()
+    st.markdown("<div style='font-size: 0.85rem; font-weight: 800; color: #475569; margin-bottom: 8px;'>최근</div>", unsafe_allow_html=True)
+    if st.session_state.saved_chats:
+        for idx, chat in enumerate(st.session_state.saved_chats):
+            sc1, sc2, sc3 = st.columns([0.72, 0.14, 0.14])
+            with sc1:
+                st.markdown(
+                    f"""<div style="font-size: 0.83rem; color: #1e293b; font-weight: 600; padding: 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{chat.get('saved_at', '')}">
+                        {chat['title']}
+                    </div>""",
+                    unsafe_allow_html=True
+                )
+            with sc2:
+                if st.button("✈", key=f"load_c_{chat['id']}_{idx}", help="이 대화 가져와서 이어서 대화 나누기", use_container_width=True):
+                    if uploaded_file and st.session_state.get("session_mode") == 1 and st.session_state.get("active_chat_id") == chat["id"]:
+                        st.toast("이미 불러온 대화입니다. 현재 화면에서 대화가 진행 중입니다.")
+                    else:
+                        restored_msgs = list(chat["messages"])
+                        st.session_state.session_mode = 1
+                        st.session_state.active_chat_id = chat["id"]
+                        st.session_state.restored_doc_name = chat.get("doc_name", "문서 정보 없음")
+                        st.session_state.messages = restored_msgs
+                        save_current_chat(restored_msgs)
+                        st.session_state.pending_clarification = None
+                        st.toast(f"'{chat['title']}' 대화를 불러왔습니다. 하단에서 이어서 질문하세요!")
+                        st.rerun()
+            with sc3:
+                if st.button("✕", key=f"del_c_{chat['id']}_{idx}", help="이 대화 삭제", use_container_width=True):
+                    if st.session_state.get("active_chat_id") == chat["id"]:
+                        st.session_state.active_chat_id = None
+                    st.session_state.saved_chats.pop(idx)
+                    save_chats_to_file(st.session_state.saved_chats)
+                    st.toast("대화가 삭제되었습니다.")
+                    st.rerun()
+    else:
+        st.caption("저장된 최근 대화가 없습니다.")
 
     st.markdown("""
     <div style="margin-top: 14px; padding: 12px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.78rem; color: #475569; line-height: 1.4;">
@@ -233,22 +345,43 @@ with st.expander("파라미터 & RAG 하이퍼파라미터 설정 (Chunk Size, O
         k_value = st.slider("Retriever Top-K", min_value=1, max_value=10, value=3, step=1, help="[참조할 문서 조각 수] 질문과 가장 관련 깊은 문서 조각(청크)을 몇 개나 읽고 답변할지 결정합니다.")
         temperature = st.slider("Temperature", min_value=0.0, max_value=1.0, value=0.0, step=0.1, help="[답변 창의성 / 사실성] 0.0으로 설정하면 문서 원문에 100% 충실한 사실적 답변만 생성합니다.")
     with col3:
-        model_name = st.selectbox("LLM 모델 선택", ["llama-3.3-70b-versatile (Groq 100% 무료)", "Ollama Llama3 (로컬 On-Premise 지원)", "gemini-2.0-flash", "gemini-1.5-flash"], help="[AI 분석 모델] 기술 문서 분석 및 답변 생성에 사용할 AI 모델 버전입니다.")
+        model_name = st.selectbox("LLM 모델 선택", ["llama-3.3-70b-versatile (Groq 100% 무료)", "Ollama Llama3 (로컬 On-Premise 지원)", "gemini-2.0-flash", "gemini-1.5-flash"], index=0, help="[AI 분석 모델] 기술 문서 분석 및 답변 생성에 사용할 AI 모델 버전입니다.")
         distance_threshold = st.slider("Similarity Threshold", min_value=0.5, max_value=2.0, value=1.45, step=0.05, help="[무관한 질문 차단 가드레일] FAISS L2 거리 점수가 이 값을 초과하면 환각을 사전 차단합니다.")
     with col4:
-        response_format = st.selectbox("답변 출력 양식 선택", ["표준 보고서 모드 (핵심-상세-출처)", "간략 요약 모드 (직행 답변)", "심층 분석 모드 (개요-상세-시사점)"], help="[답변 출력 서식] AI 답변의 렌더링 스타일 및 정보 상세도 수준을 결정합니다.")
+        response_format = st.selectbox("답변 출력 양식 선택", ["간략 요약 모드 (직행 답변)", "표준 보고서 모드 (핵심-상세-출처)", "심층 분석 모드 (개요-상세-시사점)"], index=0, help="[답변 출력 서식] AI 답변의 렌더링 스타일 및 정보 상세도 수준을 결정합니다.")
         rebuild = st.button("파라미터 적용 및 체인 재구축", use_container_width=True)
 
 if uploaded_file:
+    # 기존 문서가 이미 존재하는 상태에서 다른 파일로 새로 교체할 때만 대화 초기화 확인 팝업 표출
+    is_doc_changed = ("current_filename" in st.session_state) and (st.session_state.current_filename != uploaded_file.name)
+    is_new_file = ("current_filename" not in st.session_state) or (st.session_state.current_filename != uploaded_file.name)
+    has_active_chat = bool(st.session_state.get("messages", []))
+
+    if is_doc_changed and has_active_chat and not st.session_state.get("doc_change_approved", False):
+        st.warning("첨부한 문서를 다른 문서로 바꾸면 현재 활성화된 대화창이 새 문서로 전환됩니다. (저장된 최근 대화 목록은 안전하게 유지됩니다) 계속 진행하시겠습니까?")
+        c_col1, c_col2 = st.columns(2)
+        with c_col1:
+            if st.button("확인 (새 문서로 전환)", type="primary", use_container_width=True, key="confirm_change_doc_yes"):
+                st.session_state.doc_change_approved = True
+                st.session_state.messages = []
+                save_current_chat([])
+                st.session_state.session_mode = 0
+                st.session_state.active_chat_id = None
+                st.session_state.pending_clarification = None
+                st.rerun()
+        with c_col2:
+            if st.button("취소 (기존 대화 유지)", use_container_width=True, key="confirm_change_doc_no"):
+                st.info("문서 변경이 취소되었습니다.")
+                st.stop()
+
+    st.session_state.doc_change_approved = False
+
     # 안전한 임시 파일 관리 (UUID 파일명 및 try...finally 삭제)
     temp_dir = os.path.join(os.path.dirname(__file__), "temp")
     os.makedirs(temp_dir, exist_ok=True)
     temp_path = os.path.join(temp_dir, f"temp_{uuid.uuid4().hex[:8]}_{uploaded_file.name}")
     
     config_key = f"{uploaded_file.name}_{chunk_size}_{chunk_overlap}_{k_value}_{model_name}_{temperature}_{distance_threshold}_{response_format}"
-    
-    # 새 파일 업로드 감지 시 기존 세션 및 대화 기록 자동 초기화
-    is_new_file = ("current_filename" not in st.session_state) or (st.session_state.current_filename != uploaded_file.name)
     
     if is_new_file or "current_config" not in st.session_state or st.session_state.current_config != config_key or rebuild:
         with st.spinner("문서 구조 분석 및 FAISS 벡터 인덱스를 구축 중입니다..."):
@@ -273,7 +406,7 @@ if uploaded_file:
                 st.session_state.current_config = config_key
                 st.session_state.current_filename = uploaded_file.name
                 
-                if is_new_file or rebuild:
+                if rebuild:
                     st.session_state.messages = []
                     st.session_state.pending_clarification = None
             finally:
@@ -315,9 +448,19 @@ if uploaded_file:
     st.divider()
 
     # 메시지 히스토리 렌더링
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    if st.session_state.messages:
+        if st.session_state.get("session_mode") == 1:
+            st.markdown("<div style='font-size: 0.8rem; font-weight: 700; color: #0284c7; margin-bottom: 8px;'><span class='ent-badge' style='background: #e0f2fe; color: #0369a1; border-color: #7dd3fc;'>불러온 대화 히스토리</span></div>", unsafe_allow_html=True)
+            
+            r_doc = st.session_state.get("restored_doc_name")
+            cur_doc = uploaded_file.name if uploaded_file else None
+            
+            if cur_doc and r_doc and cur_doc != r_doc and r_doc != "문서 정보 없음":
+                st.warning(f"현재 첨부된 문서('{cur_doc}')가 불러온 대화의 원본 문서('{r_doc}')와 다릅니다. 이어서 대화를 진행하시려면 '{r_doc}' 문서로 새로 첨부해 주세요.")
+
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
 
     # RAG 질의 처리 함수
     def process_query(user_query, domain_choice=None):
@@ -373,10 +516,6 @@ if uploaded_file:
             if standalone_q != user_query and not domain_choice:
                 st.caption(f"**[멀티턴 맥락 재구성 검색어]**: `{standalone_q}`")
 
-            if domain_choice:
-                param_mapping_info = f"```json\n[사용자 서식/옵션 매핑]: {{ query: \"{user_query}\", selected_form_options: \"{domain_choice}\" }}\n```\n\n"
-                response_text = param_mapping_info + response_text
-
             st.markdown(response_text)
             
             try:
@@ -400,9 +539,24 @@ if uploaded_file:
                         st.info(formatted_text)
             
             if ans_time > 0:
-                st.caption(f"응답 소요 시간: {ans_time}초")
+                page_nums = sorted(list(set([doc.metadata.get("page", 0) + 1 for doc in docs if hasattr(doc, "metadata") and "page" in doc.metadata]))) if docs else []
+                pages_caption = f" | Reference Pages: {', '.join([f'Page {p}' for p in page_nums])}" if page_nums else ""
+                st.caption(f"Response Time: {ans_time}s{pages_caption}")
 
         st.session_state.messages.append({"role": "assistant", "content": response_text})
+        save_current_chat(st.session_state.messages)
+        
+        # 불러온 활성 대화인 경우, 추가 질문 및 답변을 최근 목록 DB에 실시간 동기화
+        if st.session_state.get("active_chat_id"):
+            active_id = st.session_state.active_chat_id
+            for chat_item in st.session_state.saved_chats:
+                if chat_item["id"] == active_id:
+                    chat_item["messages"] = list(st.session_state.messages)
+                    chat_item["saved_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                    save_chats_to_file(st.session_state.saved_chats)
+                    break
+
+        st.rerun()
 
     # 스마트 역질문 대기 중인 경우 유저 대화형 Form 카드 렌더링
     if st.session_state.pending_clarification:
@@ -458,7 +612,7 @@ if uploaded_file:
             
             st.write("")
             
-        if st.button("선택 완료 및 답변 생성 ➔", key="clarify_submit_btn", type="primary", use_container_width=True):
+        if st.button("선택 완료 및 답변 생성", key="clarify_submit_btn", type="primary", use_container_width=True):
             st.session_state.pending_clarification = None
             summary_choice_str = ", ".join([f"{val}" for val in selected_answers.values()])
             st.session_state.messages.append({"role": "user", "content": f"[세부 선택사항 제출]: {summary_choice_str}"})
@@ -470,43 +624,90 @@ if uploaded_file:
         task_data = st.session_state.pop("execute_query_on_rerun")
         process_query(task_data["query"], domain_choice=task_data["domain_choice"])
 
+    if st.session_state.messages:
+        b_col1, b_col2 = st.columns([0.93, 0.07])
+        with b_col2:
+            if st.button("☆", key="chat_bottom_right_save_btn", help="대화 저장", use_container_width=True):
+                first_user_q = next((m["content"] for m in st.session_state.messages if m["role"] == "user"), "대화 기록")
+                clean_q = first_user_q.replace("[세부 선택사항 제출]: ", "").strip()
+                if len(clean_q) > 7:
+                    chat_title = clean_q[:7] + "..."
+                else:
+                    chat_title = clean_q if clean_q else "대화 기록"
+                doc_name = uploaded_file.name if uploaded_file else st.session_state.get("current_filename", "문서 정보 없음")
+                new_chat = {
+                    "id": uuid.uuid4().hex[:8],
+                    "title": chat_title,
+                    "doc_name": doc_name,
+                    "saved_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "messages": list(st.session_state.messages)
+                }
+                st.session_state.active_chat_id = new_chat["id"]
+                st.session_state.saved_chats.insert(0, new_chat)
+                save_chats_to_file(st.session_state.saved_chats)
+                st.toast(f"'{chat_title}' 대화가 최근 목록에 저장되었습니다. (분석 문서: {doc_name})")
+                st.rerun()
+
     if prompt := st.chat_input("업로드한 기술 문서에 대해 자유롭게 질문하세요... (예: 사양 알려줘 / 아까 말한 1번 항목 자세히 설명해줘)"):
         st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        process_query(prompt)
+        save_current_chat(st.session_state.messages)
+        st.session_state.execute_query_on_rerun = {"query": prompt, "domain_choice": None}
+        st.rerun()
 
 else:
-    st.markdown("""
-    <div class="bento-card" style="text-align: center; padding: 32px 20px; margin-bottom: 20px;">
-        <span class="ent-badge">문서 등록 대기 중</span>
-        <h2 style="color: #0f172a; font-size: 1.4rem; font-weight: 800; margin: 6px 0 10px 0;">PDF 기술 문서를 업로드해 주세요</h2>
-        <p style="color: #475569; font-size: 0.88rem; max-width: 600px; margin: 0 auto;">
-            왼쪽 제어 패널에서 PDF 규격/설계 문서를 등록하면 FAISS 인덱싱 후 멀티턴 질의응답 및 유사도 가드레일 RAG 분석을 즉시 이용하실 수 있습니다.
-        </p>
-    </div>
+    # 첨부된 파일이 없는 경우: 대화 불러오기 모드(session_mode == 1)인 경우 해당 대화 복원 및 문서 첨부 경고 팝업 표출
+    if st.session_state.get("session_mode") == 1 and bool(st.session_state.get("messages", [])):
+        st.markdown("<div style='font-size: 0.8rem; font-weight: 700; color: #0284c7; margin-bottom: 8px;'><span class='ent-badge' style='background: #e0f2fe; color: #0369a1; border-color: #7dd3fc;'>불러온 대화 히스토리</span></div>", unsafe_allow_html=True)
+        
+        r_doc = st.session_state.get("restored_doc_name")
+        if r_doc and r_doc != "문서 정보 없음":
+            st.warning(f"이 대화를 이어서 진행하시려면 관련 기술 문서('{r_doc}')를 왼쪽 제어 패널에 첨부해 주세요.")
+        else:
+            st.warning("이 대화를 이어서 진행하시려면 관련 기술 PDF 문서를 왼쪽 제어 패널에 첨부해 주세요.")
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px;">
-        <div class="bento-card">
-            <span class="ent-badge">멀티턴 검색</span>
-            <div style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin-bottom: 6px;">Query Rewriting</div>
-            <div style="font-size: 0.84rem; color: #475569; line-height: 1.5;">
-                이전 대화 맥락("그거", "아까 그 항목")을 기억하여 검색에 최적화된 독립 질의어로 자동 구성합니다.
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+    else:
+        if "current_filename" in st.session_state:
+            st.session_state.pop("current_filename", None)
+            st.session_state.pop("current_config", None)
+            st.session_state.messages = []
+            save_current_chat([])
+            st.session_state.pending_clarification = None
+            st.session_state.rag_chain = None
+            st.session_state.retriever = None
+
+        st.markdown("""
+        <div class="bento-card" style="text-align: center; padding: 32px 20px; margin-bottom: 20px;">
+            <span class="ent-badge">문서 등록 대기 중</span>
+            <h2 style="color: #0f172a; font-size: 1.4rem; font-weight: 800; margin: 6px 0 10px 0;">PDF 기술 문서를 업로드해 주세요</h2>
+            <p style="color: #475569; font-size: 0.88rem; max-width: 600px; margin: 0 auto;">
+                왼쪽 제어 패널에서 PDF 규격/설계 문서를 등록하면 FAISS 인덱싱 후 멀티턴 질의응답 및 유사도 가드레일 RAG 분석을 즉시 이용하실 수 있습니다.
+            </p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px;">
+            <div class="bento-card">
+                <span class="ent-badge">멀티턴 검색</span>
+                <div style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin-bottom: 6px;">Query Rewriting</div>
+                <div style="font-size: 0.84rem; color: #475569; line-height: 1.5;">
+                    이전 대화 맥락("그거", "아까 그 항목")을 기억하여 검색에 최적화된 독립 질의어로 자동 구성합니다.
+                </div>
+            </div>
+            <div class="bento-card">
+                <span class="ent-badge">FAISS + 가드레일</span>
+                <div style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin-bottom: 6px;">유사도 거절 차단</div>
+                <div style="font-size: 0.84rem; color: #475569; line-height: 1.5;">
+                    문서 내용과 무관한 질의는 정량적 유사도 측정으로 사전 차단하여 LLM 환각을 원천적으로 막아냅니다.
+                </div>
+            </div>
+            <div class="bento-card">
+                <span class="ent-badge">스마트 역질문</span>
+                <div style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin-bottom: 6px;">LLM Clarification Loop</div>
+                <div style="font-size: 0.84rem; color: #475569; line-height: 1.5;">
+                    질문이 지나치게 모호할 경우 LLM이 세부 영역 선택지를 스스로 생성하여 유저에게 반환합니다.
+                </div>
             </div>
         </div>
-        <div class="bento-card">
-            <span class="ent-badge">FAISS + 가드레일</span>
-            <div style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin-bottom: 6px;">유사도 거절 차단</div>
-            <div style="font-size: 0.84rem; color: #475569; line-height: 1.5;">
-                문서 내용과 무관한 질의는 정량적 유사도 측정으로 사전 차단하여 LLM 환각을 원천적으로 막아냅니다.
-            </div>
-        </div>
-        <div class="bento-card">
-            <span class="ent-badge">스마트 역질문</span>
-            <div style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin-bottom: 6px;">LLM Clarification Loop</div>
-            <div style="font-size: 0.84rem; color: #475569; line-height: 1.5;">
-                질문이 지나치게 모호할 경우 LLM이 세부 영역 선택지를 스스로 생성하여 유저에게 반환합니다.
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)

@@ -1,3 +1,14 @@
+---
+title: KEA Enterprise Tech-GPT RAG
+emoji: 🚀
+colorFrom: blue
+colorTo: indigo
+sdk: streamlit
+sdk_version: 1.35.0
+app_file: app.py
+pinned: false
+---
+
 # 🚀 KEA Enterprise Tech-GPT RAG Platform (ver2)
 
 [![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=Streamlit&logoColor=white)](https://streamlit.io/)
