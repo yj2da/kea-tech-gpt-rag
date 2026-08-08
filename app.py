@@ -354,6 +354,7 @@ with st.expander("파라미터 & RAG 하이퍼파라미터 설정 (Chunk Size, O
 if uploaded_file:
     # 기존 문서가 이미 존재하는 상태에서 다른 파일로 새로 교체 시 팝업 없이 즉시 새 문서 대화 세션으로 전환 (저장된 최근 대화 목록은 안전 보존)
     is_doc_changed = ("current_filename" in st.session_state) and (st.session_state.current_filename != uploaded_file.name)
+    is_new_file = ("current_filename" not in st.session_state) or is_doc_changed
     if is_doc_changed:
         st.session_state.messages = []
         save_current_chat([])
