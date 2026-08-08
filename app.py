@@ -352,29 +352,14 @@ with st.expander("파라미터 & RAG 하이퍼파라미터 설정 (Chunk Size, O
         rebuild = st.button("파라미터 적용 및 체인 재구축", use_container_width=True)
 
 if uploaded_file:
-    # 기존 문서가 이미 존재하는 상태에서 다른 파일로 새로 교체할 때만 대화 초기화 확인 팝업 표출
+    # 기존 문서가 이미 존재하는 상태에서 다른 파일로 새로 교체 시 팝업 없이 즉시 새 문서 대화 세션으로 전환 (저장된 최근 대화 목록은 안전 보존)
     is_doc_changed = ("current_filename" in st.session_state) and (st.session_state.current_filename != uploaded_file.name)
-    is_new_file = ("current_filename" not in st.session_state) or (st.session_state.current_filename != uploaded_file.name)
-    has_active_chat = bool(st.session_state.get("messages", []))
-
-    if is_doc_changed and has_active_chat and not st.session_state.get("doc_change_approved", False):
-        st.warning("첨부한 문서를 다른 문서로 바꾸면 현재 활성화된 대화창이 새 문서로 전환됩니다. (저장된 최근 대화 목록은 안전하게 유지됩니다) 계속 진행하시겠습니까?")
-        c_col1, c_col2 = st.columns(2)
-        with c_col1:
-            if st.button("확인 (새 문서로 전환)", type="primary", use_container_width=True, key="confirm_change_doc_yes"):
-                st.session_state.doc_change_approved = True
-                st.session_state.messages = []
-                save_current_chat([])
-                st.session_state.session_mode = 0
-                st.session_state.active_chat_id = None
-                st.session_state.pending_clarification = None
-                st.rerun()
-        with c_col2:
-            if st.button("취소 (기존 대화 유지)", use_container_width=True, key="confirm_change_doc_no"):
-                st.info("문서 변경이 취소되었습니다.")
-                st.stop()
-
-    st.session_state.doc_change_approved = False
+    if is_doc_changed:
+        st.session_state.messages = []
+        save_current_chat([])
+        st.session_state.session_mode = 0
+        st.session_state.active_chat_id = None
+        st.session_state.pending_clarification = None
 
     # 안전한 임시 파일 관리 (UUID 파일명 및 try...finally 삭제)
     temp_dir = os.path.join(os.path.dirname(__file__), "temp")
