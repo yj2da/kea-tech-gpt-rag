@@ -1,18 +1,4 @@
-# Environment Variables
 .env
-
-# Python Bytecode & Cache
 __pycache__/
-*.py[cod]
-*$py.class
-.pytest_cache/
-
-# Temporary upload storage
 temp/
-*.pdf
-
-# OS / Editor Files
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
+*.json
