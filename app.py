@@ -885,7 +885,7 @@ with main_tab2:
                 st.session_state.active_store_module = {
                     "id": "mod_1",
                     "name": "📘 KEA 국가 R&D 기술 보고서 자동 요약 에이전트 (v1.2)",
-                    "prompt_prefix": "[KEA 국가 R&D 요약 에이전트 모듈 활성화] 당신은 국가 연구 보고서 전문 요약관입니다. 질문이 '날짜', '작성자', '금액' 등 단순 팩트 단답형 조회의 경우 [핵심 직관 답변: ...]으로 질문에 대한 정답을 최상단 1줄로 먼저 명확히 답변한 후, 전체 문서에 대한 3단 요약 보고서를 작성하세요:\n\n### 📌 [KEA R&D 핵심 요약 보고서]\n- **1. 핵심 기술 사양**: (문서 내 핵심 파라미터 2~3개)\n- **2. 주요 연구 성과**: (핵심 결론 및 성과)\n- **3. 3줄 핵심 요약**: (전체 핵심 요약 문장 3개)"
+                    "prompt_prefix": "[KEA 국가 R&D 전문 요약 에이전트 구동 중]\n질문된 내용에 대해 문서 원문 근거로 깊이 있게 분석하고, 질문한 항목과 관련된 실제 데이터를 바탕으로 아래 3단 서식을 실시간 완성하여 답변하세요:\n\n### 📌 [KEA R&D 기술 분석 보고서]\n- **1. 질문 관련 핵심 사양/파라미터**: (질문과 관련된 문서 내 구체적 스펙 및 치수)\n- **2. 주요 기술 성과 및 특징**: (질문 대상 기술의 구체적 성과)\n- **3. 핵심 결론 3줄 요약**: (문서 기반 정밀 요약 문장 3개)"
                 }
                 st.toast("'KEA 국가 R&D 요약 에이전트' 모듈이 단일 활성화되었습니다! 다른 모듈은 자동 해제되었습니다.")
                 st.rerun()
@@ -918,7 +918,7 @@ with main_tab2:
                 st.session_state.active_store_module = {
                     "id": "mod_2",
                     "name": "🔌 기업 기술 사양서 JSON API 파라미터 변환기 (v1.0)",
-                    "prompt_prefix": "[JSON API 파라미터 변환기 모듈 활성화] 당신은 레거시 ERP/CRM 백엔드 변환 에이전트입니다. 질문이 '날짜', '작성자', '금액' 등 단순 팩트 조회의 경우 [핵심 직관 답변: ...]으로 정답을 최상단 1줄로 먼저 답변한 뒤, 아래 표준 JSON 코드 블록을 포함하세요:\n\n```json\n{\n  \"api_status\": \"SUCCESS\",\n  \"service_target\": \"KEA_ERP_PARSER_V1\",\n  \"extracted_parameters\": {\n    \"item_spec\": \"문서 내 추출 스펙\",\n    \"technical_keywords\": [\"스펙\", \"파라미터\"],\n    \"confidence\": 0.99\n  }\n}\n```"
+                    "prompt_prefix": "[KEA ERP/CRM 백엔드 파라미터 변환 에이전트 구동 중]\n질문된 내용의 기술 스펙을 문서 원문에서 실시간 파싱하여 아래 표준 JSON 코드 블록 내 extracted_parameters 항목에 문서 내 실제 추출된 값과 키워드를 실시간 채워서 응답하세요:\n\n```json\n{\n  \"api_status\": \"SUCCESS\",\n  \"service_target\": \"KEA_ERP_PARSER_V1\",\n  \"extracted_parameters\": {\n    \"queried_topic\": \"질문 항목\",\n    \"matched_spec_value\": \"문서 추출 실제 값\",\n    \"technical_keywords\": [\"추출 키워드1\", \"추출 키워드2\"],\n    \"confidence\": 0.98\n  }\n}\n```"
                 }
                 st.toast("'JSON API 파라미터 변환기' 모듈이 단일 활성화되었습니다!")
                 st.rerun()
@@ -952,7 +952,7 @@ with main_tab2:
                 st.session_state.active_store_module = {
                     "id": "mod_3",
                     "name": "📜 특허 청구항 자동 추출 & 기술 비교 매퍼 (v2.0)",
-                    "prompt_prefix": "[특허 청구항 추출 & 비교 매퍼 모듈 활성화] 당신은 특허 분석 전문 변리사입니다. 질문이 '날짜', '작성자', '금액' 등 단순 팩트 조회의 경우 [핵심 직관 답변: ...]으로 정답을 최상단 1줄로 먼저 답변한 뒤, 아래 대조 마크다운 테이블을 포함하여 분석하세요:\n\n### 📜 [특허 청구항 vs 보유 기술 비교 매핑표]\n| 특허 청구항 권리 범위 | 본 기술 문서 사양 | 일치율 (%) | 침해 리스크 평가 |\n| :--- | :--- | :---: | :---: |\n| ... | ... | ...% | [낮음 / 보통 / 높음] |\n"
+                    "prompt_prefix": "[특허 분석 전문 변리사 매퍼 구동 중]\n질문된 항목과 문서 내 기술 스펙을 실시간 교차 분석하여 문서의 실제 내용으로 아래 대조 비교표의 내용(청구항 권리 범위, 문서 사양, 일치율, 침해 리스크)을 실시간 채워서 분석하세요:\n\n### 📜 [특허 청구항 vs 본 기술 문서 실시간 교차 비교표]\n| 특허 청구항 권리 범위 | 본 기술 문서 실제 사양 | 일치율 (%) | 침해 리스크 평가 |\n| :--- | :--- | :---: | :---: |\n"
                 }
                 st.toast("'특허 청구항 자동 추출 매퍼' 모듈이 단일 활성화되었습니다!")
                 st.rerun()
@@ -985,7 +985,7 @@ with main_tab2:
                 st.session_state.active_store_module = {
                     "id": "mod_4",
                     "name": "🔒 On-Premise Ollama 로컬 LLM 보안 전송 모듈 (v1.1)",
-                    "prompt_prefix": "[🔒 ON-PREMISE OLLAMA LOCAL SECURITY ENGINE ACTIVE]\n• 전송 상태: 외부 클라우드 API 호출 0% (사내 On-Premise 로컬 LLM 전용 망 연결)\n• 로컬 추론 노드: http://localhost:11434 (Llama3-8B-Local-Secured)\n\n질문이 '날짜', '작성자', '금액' 등 단순 팩트 조회의 경우 [핵심 직관 답변: ...]으로 정답을 최상단 1줄로 먼저 답변한 뒤, 사내 보안 분석을 수행하세요:\n[사내 보안 분석 응답]: "
+                    "prompt_prefix": "[🔒 ON-PREMISE OLLAMA LOCAL SECURITY ENGINE ACTIVE]\n• 전송 상태: 외부 클라우드 API 호출 0% (사내 On-Premise 로컬 LLM 전용 망 연결)\n• 로컬 추론 노드: http://localhost:11434 (Llama3-8B-Local-Secured)\n\n질문하신 기술 스펙에 대해 사내 보안 가이드라인을 준수하여 분석 응답하세요:\n[사내 온프레미스 보안 분석 응답]: "
                 }
                 st.toast("'Ollama 로컬 LLM 보안 전송 모듈'이 단일 활성화되었습니다!")
                 st.rerun()
