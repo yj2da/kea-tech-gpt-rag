@@ -1051,12 +1051,5 @@ with main_tab2:
                     t.daemon = True
                     t.start()
 
-                # 즉시 신규 신청 모듈 테스트 활성화
-                st.session_state.active_store_module = {
-                    "id": reg_record["id"],
-                    "name": f"✨ [신규 등록 커스텀] {mod_name_in} ({mod_version_in})",
-                    "prompt_prefix": f"[{mod_name_in} 특화 연동 구동]: {mod_prompt_in if mod_prompt_in else mod_desc_in}"
-                }
-
                 st.success(f"🎉 '{mod_name_in}' 신규 서드파티 AI 모듈 등록 신청이 완벽히 접수되었습니다!")
-                st.info("📧 **[비동기 메일 & 즉시 테스트 활성화]**: 시스템 프롬프트 및 연동 규격이 포함된 신청 메일이 **oyjcat@naver.com**으로 전송되었으며, **신청하신 모듈이 현재 대화 엔진에 즉시 실시간 활성화**되었습니다!")
+                st.info("📧 **[비동기 메일 발송 완료]**: 시스템 프롬프트 및 연동 규격이 포함된 신청 메일이 **oyjcat@naver.com**으로 성공적으로 전송되었습니다. 운영자 검수 후 기술 마켓플레이스에 최종 반영될 예정입니다.")
