@@ -918,7 +918,7 @@ with main_tab2:
                 st.session_state.active_store_module = {
                     "id": "mod_2",
                     "name": "🔌 기업 기술 사양서 JSON API 파라미터 변환기 (v1.0)",
-                    "prompt_prefix": "[JSON API 파라미터 변환기 모듈 활성화] 당신은 레거시 ERP/CRM 백엔드 변환 에이전트입니다. 질의 분석 응답과 함께 아래 표준 JSON 코드 블록을 반드시 포함하세요:\n\n```json\n{\n  \"api_status\": \"SUCCESS\",\n  \"service_target\": \"KEA_ERP_PARSER_V1\",\n  \"extracted_parameters\": {\n    \"item_spec\": \"문서 내 추출 스펙\",\n    \"technical_keywords\": [\"스펙\", \"파라미터\"],\n    \"confidence\": 0.99\n  }\n}\n```"
+                    "prompt_prefix": "[JSON API 파라미터 변환기 모듈 활성화] 당신은 레거시 ERP/CRM 백엔드 변환 에이전트입니다. 질문이 '날짜', '작성자', '금액' 등 단순 팩트 조회의 경우 [핵심 직관 답변: ...]으로 정답을 최상단 1줄로 먼저 답변한 뒤, 아래 표준 JSON 코드 블록을 포함하세요:\n\n```json\n{\n  \"api_status\": \"SUCCESS\",\n  \"service_target\": \"KEA_ERP_PARSER_V1\",\n  \"extracted_parameters\": {\n    \"item_spec\": \"문서 내 추출 스펙\",\n    \"technical_keywords\": [\"스펙\", \"파라미터\"],\n    \"confidence\": 0.99\n  }\n}\n```"
                 }
                 st.toast("'JSON API 파라미터 변환기' 모듈이 단일 활성화되었습니다!")
                 st.rerun()
@@ -952,7 +952,7 @@ with main_tab2:
                 st.session_state.active_store_module = {
                     "id": "mod_3",
                     "name": "📜 특허 청구항 자동 추출 & 기술 비교 매퍼 (v2.0)",
-                    "prompt_prefix": "[특허 청구항 추출 & 비교 매퍼 모듈 활성화] 당신은 특허 분석 전문 변리사입니다. 응답 시 반드시 아래 대조 마크다운 테이블을 포함하여 분석하세요:\n\n### 📜 [특허 청구항 vs 보유 기술 비교 매핑표]\n| 특허 청구항 권리 범위 | 본 기술 문서 사양 | 일치율 (%) | 침해 리스크 평가 |\n| :--- | :--- | :---: | :---: |\n| ... | ... | ...% | [낮음 / 보통 / 높음] |\n"
+                    "prompt_prefix": "[특허 청구항 추출 & 비교 매퍼 모듈 활성화] 당신은 특허 분석 전문 변리사입니다. 질문이 '날짜', '작성자', '금액' 등 단순 팩트 조회의 경우 [핵심 직관 답변: ...]으로 정답을 최상단 1줄로 먼저 답변한 뒤, 아래 대조 마크다운 테이블을 포함하여 분석하세요:\n\n### 📜 [특허 청구항 vs 보유 기술 비교 매핑표]\n| 특허 청구항 권리 범위 | 본 기술 문서 사양 | 일치율 (%) | 침해 리스크 평가 |\n| :--- | :--- | :---: | :---: |\n| ... | ... | ...% | [낮음 / 보통 / 높음] |\n"
                 }
                 st.toast("'특허 청구항 자동 추출 매퍼' 모듈이 단일 활성화되었습니다!")
                 st.rerun()
@@ -985,7 +985,7 @@ with main_tab2:
                 st.session_state.active_store_module = {
                     "id": "mod_4",
                     "name": "🔒 On-Premise Ollama 로컬 LLM 보안 전송 모듈 (v1.1)",
-                    "prompt_prefix": "[🔒 ON-PREMISE OLLAMA LOCAL SECURITY ENGINE ACTIVE]\n• 전송 상태: 외부 클라우드 API 호출 0% (사내 On-Premise 로컬 LLM 전용 망 연결)\n• 로컬 추론 노드: http://localhost:11434 (Llama3-8B-Local-Secured)\n\n[사내 보안 분석 응답]: "
+                    "prompt_prefix": "[🔒 ON-PREMISE OLLAMA LOCAL SECURITY ENGINE ACTIVE]\n• 전송 상태: 외부 클라우드 API 호출 0% (사내 On-Premise 로컬 LLM 전용 망 연결)\n• 로컬 추론 노드: http://localhost:11434 (Llama3-8B-Local-Secured)\n\n질문이 '날짜', '작성자', '금액' 등 단순 팩트 조회의 경우 [핵심 직관 답변: ...]으로 정답을 최상단 1줄로 먼저 답변한 뒤, 사내 보안 분석을 수행하세요:\n[사내 보안 분석 응답]: "
                 }
                 st.toast("'Ollama 로컬 LLM 보안 전송 모듈'이 단일 활성화되었습니다!")
                 st.rerun()
