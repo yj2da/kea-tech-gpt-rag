@@ -1,4 +1,19 @@
+# Environment Variables & Secrets (Critical Security Guard)
 .env
-__pycache__/
+
+# Temporary Files & Uploads
 temp/
-*.json
+*.tmp
+
+# User Submitted Registration DB (Local Persistence)
+module_registrations.json
+
+# Python Cache & Bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# OS Specific Junk
+.DS_Store
+Thumbs.db

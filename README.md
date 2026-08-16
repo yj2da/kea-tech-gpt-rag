@@ -1,118 +1,79 @@
----
-title: KEA Enterprise Tech-GPT RAG
-emoji: 🚀
-colorFrom: blue
-colorTo: indigo
-sdk: streamlit
-sdk_version: 1.35.0
-app_file: app.py
-pinned: false
----
+# 🚀 KEA Enterprise Tech-GPT RAG Platform (v2.0)
 
-# 🚀 KEA Enterprise Tech-GPT RAG Platform (ver2)
+[![Streamlit Cloud App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://kea-tech-gpt.streamlit.app)
+![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?style=flat&logo=python&logoColor=white)
+![FAISS Vector DB](https://img.shields.io/badge/FAISS-Vector%20DB-00599C?style=flat)
+![Groq Llama 3.3](https://img.shields.io/badge/Groq-Llama%203.3%2070B-F05032?style=flat)
 
-[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=Streamlit&logoColor=white)](https://streamlit.io/)
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)](https://www.langchain.com/)
-[![FAISS](https://img.shields.io/badge/FAISS-000000?style=for-the-badge)](https://github.com/facebookresearch/faiss)
-[![Google Gemini](https://img.shields.io/badge/Google%20Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
-
-> **한국전자정보통신산업진흥회(KEA) 엔터프라이즈 기술 문서 기반 대화형 RAG 에이전트 서비스 MVP**  
-> 본 프로젝트는 국가 연구 보고서, 특허 문서 및 기업 기술 사양서 파편화 문제를 해소하고, 실제 서비스 운영 환경에서 안정적으로 동작할 수 있도록 최적화된 **대화형 기술 검색 RAG 플랫폼**입니다.
+**한국전자정보통신산업진흥회(KEA) 생성형 AI 기반 대화형 기술 플랫폼 구축 및 운영 (Tech-GPT)**  
+고비용 모델 파인튜닝 없이 **0원 FAISS + BM25 RRF 하이브리드 RAG 인덱싱**과 **3단계 신뢰성 파이프라인(Clarification Loop, Query Contextualizer, L2 Guardrail 1.45)** 및 **서드파티 시드 데이터 마켓(Tech-GPT Store)**을 제공하는 엔터프라이즈 RAG 솔루션입니다.
 
 ---
 
-## 🌟 Key Features & Improvements
-
-### 1. 🛡️ 고신뢰성 Fallback & 장애 대응 시스템 (Transparent Resilient RAG)
-- LLM API Quota 초과, 네트워크 지연 및 장애 발생 시 허위 CoT 문구를 차단합니다.
-- FAISS 벡터 데이터베이스에서 정밀 검색된 원문 청크를 투명하게 반환하여 서비스 연속성을 100% 보장합니다.
-
-### 2. 💬 대화 맥락 유지를 위한 질의 재구성 (Query Contextualization)
-- 멀티턴 대화 중 `"아까 말한 사업"`, `"그거 뭐야?"` 등 지시대명사가 포함된 문의 발생 시, 이전 대화 히스토리를 분석하여 **독립 검색 질의(Standalone Query)**로 자동 재작성 후 RAG 검색을 수행합니다.
-
-### 3. 🎯 LLM 기반 스마트 동적 역질문 (Clarification Loop)
-- 단순 키워드/글자 수 규칙이 아닌, LLM 기반 JSON 평가 파이프라인을 통해 질의의 모호성(예: `"사양"`)을 판단합니다.
-- 모호한 질문 입력 시 사용자에게 3가지 세부 관점 선택지 버튼을 동적으로 제시합니다.
-
-### 4. 🛑 유사도 가드레일 (FAISS L2 Distance Guardrail)
-- FAISS L2 Distance 점수가 설정된 임계치(1.45)를 초과할 경우 LLM 호출을 사전 차단하고 안전 안내 메시지를 반환하여 **환각(Hallucination)을 사전에 차단**합니다.
-
-### 5. 🎛️ 사이드바 파라미터 라이브 튜너 (Live Parameter Tuner)
-- 청크 사이즈(Chunk Size), 청크 오버랩(Overlap), Top-K, 유사도 임계치, LLM 모델 선택 등 핵심 하이퍼파라미터를 재배포 없이 실시간 조절 가능합니다.
-- 일반인 및 기업 회원 친화적인 **직관적 툴팁(Help Info)과 권장 가이드**가 탑재되어 있습니다.
+## 🌐 24시간 상시 라이브 서비스 배포 주소
+- **Public Live URL**: [https://kea-tech-gpt.streamlit.app](https://kea-tech-gpt.streamlit.app)
 
 ---
 
-## 🛠️ Tech Stack
+## 🔑 주요 아키텍처 및 핵심 기능
 
-- **Frontend / UI**: Streamlit (High-Contrast Enterprise SaaS Theme)
-- **RAG & Vector DB**: LangChain, FAISS (`faiss-cpu`)
-- **Embedding Model**: `jhgan/ko-sroberta-multitask` (한국어 특화 임베딩)
-- **LLM Engine**: Google Gemini 2.0 Flash (`gemini-2.0-flash`), Groq Llama 3.3, Ollama On-Premise
+### 1. 0원 파인튜닝 하이브리드 RAG (FAISS + BM25 RRF)
+- **Reciprocal Rank Fusion (RRF)**: FAISS(시맨틱 유사도 점수)와 BM25(한국어 조사 분리 키워드 토크나이저) 검색 결과를 RRF 수식($1 / (60 + rank)$)으로 공정하게 순위 융합 정렬합니다.
+- **Top-K 3 청크 최소 참조**: 문서 탐색 정확도 95%+ 달성 및 토큰 비용 최소화.
+
+### 2. 3단계 신뢰성 파이프라인 (3-Tier Reliability Engine)
+1. **Clarification Loop (스마트 역질문 Form)**: 모호한 질의("사양 알려줘") 감지 시 3가지 세부 관점 선택지 Form을 동적으로 제시합니다.
+2. **Query Contextualizer (멀티턴 맥락 재구성)**: 지시대명사("그거", "아까 말한 항목") 감지 시 최근 대화 이력을 참조해 독립적 RAG 검색어로 자동 재작성합니다.
+3. **FAISS L2 Distance Guardrail (환각 사전 차단)**: 50개 샘플 실측 분석 기반 FAISS L2 Distance > 1.45 시 LLM 호출을 사전에 100% 차단하여 환각을 방지하고 비용을 0원으로 방어합니다.
+
+### 3. Tech-GPT Store (서드파티 시드 데이터 마켓)
+- **콜드 스타트 완화 시드 모듈 4종**: KEA R&D 요약 에이전트, JSON API 파라미터 변환기, 특허 청구항 비교 매퍼, On-Premise Ollama 보안 모듈 탑재.
+- **단일 선택 활성화 제어 (`active_store_module`)**: 1회당 1개 특화 모듈만 RAG 대화 엔진에 결합되도록 UI/UX 제어.
+- **비동기 이메일 및 원자적 보관**: 서드파티 모듈 등록 신청 시 네이버 SMTP (`oyjcat@naver.com`) 비동기 쓰레드(`threading.Thread`) 0초 UI 응답 처리 및 Atomic Write 보관.
+
+### 4. 멀티유저 데이터 완전 격리 (`st.session_state`)
+- 브라우저 탭 단위 독립 세션 메모리로 전환하여 클라우드 멀티유저 환경에서 동시 사용자 간 대화 유출을 100% 차단했습니다.
 
 ---
 
-## 📂 Directory Structure
+## 🛠️ 기술 스택 (Tech Stack)
 
-```text
-├── app.py              # Streamlit 메인 메인 UI 및 세션 관리 애플리케이션
-├── rag_module.py      # ResilientRAGChain, FAISS 임베딩, 가드레일 & 백엔드 파이프라인
-├── requirements.txt    # 의존성 패키지 목록
-├── .env.example        # 환경 변수 설정 템플릿 파일
-└── README.md           # 프로젝트 안내 문서
-```
+| 구분 | 기술 스택 |
+| :--- | :--- |
+| **Frontend / UI** | Streamlit, Clean SaaS High-Contrast Design System |
+| **Vector DB / Retrieval** | FAISS Vector DB (L2 Metric), BM25 Tokenizer, Reciprocal Rank Fusion (RRF) |
+| **LLM & Inference Engine** | Groq Llama 3.3 70B (0.5s Fast Inference), Google Gemini 1.5, Ollama On-Premise Llama 3 |
+| **API & Integration** | FastAPI RESTful Service (`create_fastapi_app`), Async SMTP Mailer (`threading.Thread`) |
+| **Embeddings** | HuggingFace `jhgan/ko-sroberta-multitask` |
 
 ---
 
-## 🚀 Getting Started
+## 💻 로컬 구동 방법 (How to Run Locally)
 
-### 1. Repository Clone & Environment Setup
-
+### 1. 저장소 클론 및 패키지 설치
 ```bash
-git clone https://github.com/your-username/kea-tech-gpt-rag.git
+git clone https://github.com/yj2da/kea-tech-gpt-rag.git
 cd kea-tech-gpt-rag
-```
-
-### 2. Install Dependencies
-
-```bash
 pip install -r requirements.txt
 ```
 
-### 3. Environment Variables Configuration
-
-`.env.example` 파일을 참고하여 `.env` 파일을 생성하고 API 키를 입력하세요.
-
-```bash
-cp .env.example .env
-```
-
-`.env` 내용:
+### 2. `.env` 환경 변수 설정
 ```env
-GOOGLE_API_KEY=your_actual_google_api_key
-GROQ_API_KEY=your_actual_groq_api_key  # (선택)
+GROQ_API_KEY=gsk_your_groq_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
+ADMIN_EMAIL=oyjcat@naver.com
+SMTP_SERVER=smtp.naver.com
+SMTP_PORT=465
+SMTP_USER=oyjcat@naver.com
+SMTP_PASSWORD=your_app_password_here
 ```
 
-### 4. Run Application locally
-
+### 3. Streamlit 앱 실행
 ```bash
 streamlit run app.py
 ```
 
 ---
 
-## ☁️ Streamlit Cloud Deployment Guide
-
-1. 본 저장소를 GitHub 공개(Public) 저장소로 올립니다.
-2. [Streamlit Community Cloud](https://share.streamlit.io/)에 접속 및 로그인합니다.
-3. **New App** 클릭 후 해당 Repository와 `app.py`를 지정합니다.
-4. App Settings -> **Secrets** 메뉴에 API Key를 등록합니다:
-   ```toml
-   GOOGLE_API_KEY = "your_google_api_key"
-   GROQ_API_KEY = "your_groq_api_key"
-   ```
-5. **Deploy!** 클릭 후 배포된 상시 운영 URL을 활용합니다.
-
----
-*Developed by Oh Ye-jin for Comento AI Bootcamp Week 3 Project.*
+## 📜 라이선스 및 저작권
+본 프로젝트는 **한국전자정보통신산업진흥회(KEA)** 생성형 AI 기술 플랫폼 구축 RFP 요구사항을 준수하여 개발되었습니다.

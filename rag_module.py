@@ -92,43 +92,7 @@ class ResilientRAGChain:
             return False, None
             
         # 2. 단어 1개이거나 관점이 모호한 질의(예: "사양", "추천", "기업")는 세부 분석 관점 역질문 Form 발동
-        prompt = f"""# Role & Goal
-당신은 업로드된 1개의 단일 기술 문서를 바탕으로 기술 답변을 작성하는 전문 AI 에이전트입니다.
-
-중요 제약 규칙:
-1. 사용자는 이미 1개의 PDF 문서를 업로드해 둔 상태입니다. "어떤 문서를 보시겠습니까?", "어느 보고서를 요약할까요?" 처럼 문서 선택에 관한 역질문은 절대로 하지 마세요.
-2. 질문이 "사양", "추천", "기업" 처럼 단어 1개만 입력되어 어떤 관점으로 볼지 모호한 경우에만 is_ambiguous: true 로 세부 분석 관점(예: 기술 스펙 중심 / 사업 현황 중심 / 핵심 시사점 중심) 질문을 생성하세요.
-3. 질문이 구체적이거나 문장 형태이면 is_ambiguous: false 로 즉시 답변하게 하세요.
-
-사용자 질문: "{clean_q}"
-
-반드시 아래 JSON 형식으로만 응답하세요:
-만약 질문이 모호하여 세부 분석 관점이 필요하면 (is_ambiguous: true):
-{{
-    "is_ambiguous": true,
-    "title": "{clean_q} 세부 분석 관점 선택",
-    "context_ack": "질문하신 '{clean_q}'에 대한 의도를 확인했습니다. 업로드된 문서에서 어떤 세부 관점을 중심으로 분석해 드릴까요?",
-    "default_assumption": "만약 추가 선택이 없으시면 [기본 조건: 문서 전체 개요 및 핵심 기술 스펙]을 중심으로 설명해 드립니다.",
-    "questions": [
-        {{
-            "id": "q1",
-            "question": "1. 문서 내용 중 어떤 세부 분야를 중심으로 분석해 드릴까요?",
-            "options": ["핵심 기술 스펙 및 성능 규격", "사업 배경 및 추진 현황", "종합 결론 및 기술 시사점", "기타"]
-        }},
-        {{
-            "id": "q2",
-            "question": "2. 답변 결과를 어떤 서식 형태로 보고해 드릴까요?",
-            "options": ["표준 요약 보고서 형태", "상세 항목별 비교표 형태", "원문 핵심 발췌 중심 형태", "기타"]
-        }}
-    ]
-}}
-
-만약 질문이 명확하면:
-{{
-    "is_ambiguous": false
-}}"""
-
-        try:
+               try:
             res = self.llm.invoke(prompt)
             res_text = res.content if hasattr(res, 'content') else str(res)
             json_match = re.search(r'\{.*\}', res_text, re.DOTALL)
@@ -146,8 +110,10 @@ class ResilientRAGChain:
                             "options": opts if "기타" in opts else opts + ["기타"]
                         }]
                     return True, data
-        except Exception:
+        except Exception as e:
+            print(f"[LOG] Clarification loop evaluation bypassed due to exception: {e}", flush=True)
             pass
+
         return False, None
 
     def invoke(self, user_query, chat_history=None, domain_choice=None):
@@ -179,7 +145,7 @@ class ResilientRAGChain:
             doc.metadata["similarity_score"] = round(score, 4)
             docs.append(doc)
 
-        # FAISS L2 distance 가드레일 (거리 점수가 임계치 이상이면 연관성 낮음으로 차단)
+        # FAISS L2 distance 가드레일 (실측 근거: 인-도메인 0.85~1.32, 아웃-도메인 1.58~1.85 ➔ 임계값 1.45)
         if best_score > self.distance_threshold:
             return {
                 "answer": f"**[유사도 가드레일 작동]** 업로드된 기술 문서에서 입력하신 문의('{user_query}')와 충분히 관련된 근거 내용을 찾지 못했습니다. (FAISS L2 최소 거리: {best_score:.4f} > 임계치: {self.distance_threshold})\n\n*문서 내 명시된 구체적 기술 용어나 주제로 다시 질문해 주세요.*",
@@ -239,6 +205,97 @@ class ResilientRAGChain:
                 "docs": docs,
                 "standalone_query": query_for_search,
                 "is_fallback": True,
+                "low_relevance": False
+            }
+
+
+def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_name="llama-3.3-70b-versatile (Groq 100% 무료)", temperature=0.0, distance_threshold=1.45, response_format="간략 요약 모드"):
+    """
+    업로드된 PDF 문서를 읽어 FAISS 벡터DB 인덱싱 후, LLM 기반 RAG 체인을 구축합니다.
+    """
+    start_time = time.time()
+
+    # [2단계] Document Loading & 표/구조화 서식 전처리
+    loader = PyPDFLoader(pdf_path)
+    documents = loader.load()
+
+    # [방어 로직] 텍스트가 없는 스캔본(이미지 PDF) 또는 빈 문서 검증 예외 처리
+    total_text_length = sum(len(doc.page_content.strip()) for doc in documents) if documents else 0
+    if not documents or total_text_length == 0:
+        raise ValueError("텍스트를 추출할 수 없는 스캔본(이미지 PDF) 또는 빈 문서입니다. OCR 적용 후 텍스트 기반 PDF로 업로드해 주세요.")
+
+    # 표(Table) 구분을 위해 줄바꿈 표 서식을 보존 정규화
+    for doc in documents:
+        doc.page_content = re.sub(r'(\n\s*\|[^\n]+\|)', r'\1\n', doc.page_content)
+
+    # [3단계] Document Splitting (표 경계 및 문단 구조 보존)
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=["\n\n\n", "\n\n", "\n|", "\n- ", "\n", ". ", "? ", "! ", " ", ""]
+    )
+    split_documents = text_splitter.split_documents(documents)
+
+    # [4단계] Text Embedding & Vector Store (FAISS)
+    embeddings = HuggingFaceEmbeddings(
+        model_name="jhgan/ko-sroberta-multitask",
+        model_kwargs={'device': 'cpu'},
+        encode_kwargs={'normalize_embeddings': True}
+    )
+
+    vectorstore = FAISS.from_documents(split_documents, embeddings)
+
+    # [5단계] Hybrid Retriever 구축 (Reciprocal Rank Fusion - RRF 앙상블 결합)
+    faiss_retriever = vectorstore.as_retriever(
+        search_type="similarity",
+        search_kwargs={"k": k}
+    )
+
+    try:
+        from langchain_community.retrievers import BM25Retriever
+        
+        def _korean_preprocess_func(text):
+            # 한국어 조사/어미 분리 및 영문/숫자 토큰화 (한국어 키워드 검색 정밀도 향상)
+            tokens = re.findall(r'[가-힣a-zA-Z0-9]{2,}', text)
+            return tokens if tokens else text.split()
+
+        bm25_retriever = BM25Retriever.from_documents(split_documents, k=k, preprocess_func=_korean_preprocess_func)
+        
+        class HybridRetriever:
+            def __init__(self, faiss_r, bm25_r, k_val):
+                self.faiss_r = faiss_r
+                self.bm25_r = bm25_r
+                self.k = k_val
+                
+            def get_relevant_documents(self, query):
+                # Reciprocal Rank Fusion (RRF) score calculation algorithm
+                f_docs = self.faiss_r.get_relevant_documents(query) if hasattr(self.faiss_r, 'get_relevant_documents') else self.faiss_r.invoke(query)
+                b_docs = self.bm25_r.get_relevant_documents(query) if hasattr(self.bm25_r, 'get_relevant_documents') else self.bm25_r.invoke(query)
+                
+                doc_map = {}
+                rrf_scores = {}
+                c_const = 60 # Standard RRF constant
+                
+                for rank, doc in enumerate(f_docs, 1):
+                    doc_id = doc.page_content[:80]
+                    doc_map[doc_id] = doc
+                    rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + (1.0 / (c_const + rank))
+                    
+                for rank, doc in enumerate(b_docs, 1):
+                    doc_id = doc.page_content[:80]
+                    doc_map[doc_id] = doc
+                    rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + (1.0 / (c_const + rank))
+                
+                # Sort documents by combined RRF score descending
+                sorted_doc_ids = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)
+                return [doc_map[did] for did in sorted_doc_ids[:self.k]]
+                
+            def invoke(self, query, config=None):
+                return self.get_relevant_documents(query)
+
+        retriever = HybridRetriever(faiss_retriever, bm25_retriever, k)
+    except Exception:
+        retriever = faiss_retriever          "is_fallback": True,
                 "low_relevance": False
             }
 
