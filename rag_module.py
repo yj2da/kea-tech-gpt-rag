@@ -18,14 +18,36 @@ from langchain_core.runnables import RunnablePassthrough
 env_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path=env_path, override=True)
 
-try:
-    import streamlit as st
-    if hasattr(st, "secrets"):
-        for key in ["GROQ_API_KEY", "GOOGLE_API_KEY", "ADMIN_EMAIL", "SMTP_SERVER", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD"]:
+def get_secret(key):
+    val = os.getenv(key)
+    if val and len(str(val).strip()) > 5:
+        return str(val).strip().strip('"\'')
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets"):
             if key in st.secrets and st.secrets[key]:
-                os.environ[key] = str(st.secrets[key])
-except Exception:
-    pass
+                return str(st.secrets[key]).strip().strip('"\'')
+            lower_k = key.lower()
+            if lower_k in st.secrets and st.secrets[lower_k]:
+                return str(st.secrets[lower_k]).strip().strip('"\'')
+            for sec_k in st.secrets:
+                try:
+                    sec_obj = st.secrets[sec_k]
+                    if hasattr(sec_obj, "__getitem__"):
+                        if key in sec_obj and sec_obj[key]:
+                            return str(sec_obj[key]).strip().strip('"\'')
+                        if lower_k in sec_obj and sec_obj[lower_k]:
+                            return str(sec_obj[lower_k]).strip().strip('"\'')
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return None
+
+for k in ["GROQ_API_KEY", "GOOGLE_API_KEY", "ADMIN_EMAIL", "SMTP_SERVER", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD"]:
+    sec_val = get_secret(k)
+    if sec_val:
+        os.environ[k] = sec_val
 
 class ResilientRAGChain:
     """
@@ -384,8 +406,8 @@ def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_nam
     prompt = ChatPromptTemplate.from_template(template)
 
     # [7단계] LLM 모델 바인딩 (Groq, Gemini, OpenAI, Ollama 및 사용자 커스텀 등록 지원)
-    google_api_key = os.getenv("GOOGLE_API_KEY")
-    groq_api_key = os.getenv("GROQ_API_KEY")
+    google_api_key = get_secret("GOOGLE_API_KEY")
+    groq_api_key = get_secret("GROQ_API_KEY")
 
     def is_valid_key(key):
         return bool(key and isinstance(key, str) and not key.startswith("your_") and len(key.strip()) > 10)
