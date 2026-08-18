@@ -553,7 +553,7 @@ with main_tab1:
         with rc1:
             st.markdown(f"""
             <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 8px 14px; margin-bottom: 12px; min-height: 46px; display: flex; align-items: center; gap: 10px; box-sizing: border-box;">
-                <span class="ent-badge" style="background: #2563eb; color: #ffffff; border: none; margin: 0; white-space: nowrap; flex-shrink: 0; font-size: 0.76rem; padding: 4px 8px;">💡 AI 맞춤 모듈 추천</span>
+                <span class="ent-badge" style="background: #2563eb; color: #ffffff; border: none; margin: 0; white-space: nowrap; flex-shrink: 0; font-size: 0.76rem; padding: 4px 8px;">💡 맞춤 모듈 추천</span>
                 <span style="font-weight: 700; color: #1e3a8a; font-size: 0.85rem; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                     첨부: <b>{short_fname}</b> ➔ <span style="color: #1d4ed8;">{rec_mod['name']}</span>
                 </span>
