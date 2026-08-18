@@ -430,7 +430,7 @@ with main_tab1:
             k_value = st.slider("Retriever Top-K", min_value=1, max_value=10, value=3, step=1, help="[참조할 문서 조각 수] 답변 생성 시 읽어올 청크 개수입니다.")
             temperature = st.slider("Temperature", min_value=0.0, max_value=1.0, value=0.0, step=0.1, help="[답변 사실성] 0.0이면 문서 원문에 충실한 사실적 답변만 생성합니다.")
         with col3:
-            model_name = st.selectbox("LLM 모델 선택", ["llama-3.3-70b-versatile (Groq 100% 무료)", "Ollama Llama3 (로컬 On-Premise 지원)", "gemini-2.0-flash", "gemini-1.5-flash"], index=0, help="[AI 분석 모델] 답변 생성에 사용할 AI 모델 버전입니다.")
+            model_name = st.selectbox("LLM 모델 선택", ["groq/compound (Groq 100% 무료)", "llama-3.3-70b-versatile (Groq)", "Ollama Llama3 (로컬 On-Premise 지원)", "gemini-2.0-flash", "gemini-1.5-flash"], index=0, help="[AI 분석 모델] 답변 생성에 사용할 AI 모델 버전입니다.")
             distance_threshold = st.slider("Similarity Threshold", min_value=0.5, max_value=2.0, value=1.45, step=0.05, help="[환각 차단 가드레일] FAISS L2 거리 점수가 이 값을 초과하면 사전 차단합니다.")
         with col4:
             response_format = st.selectbox("답변 출력 양식 선택", ["간략 요약 모드 (직행 답변)", "표준 보고서 모드 (핵심-상세-출처)", "심층 분석 모드 (개요-상세-시사점)"], index=0, help="[답변 서식] 정보 상세도 수준을 결정합니다.")

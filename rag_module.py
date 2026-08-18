@@ -411,8 +411,9 @@ def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_nam
             else:
                 llm = ChatGroq(model_name="llama-3.3-70b-versatile", temperature=temperature, groq_api_key=groq_api_key or "invalid")
     elif ("llama" in model_name.lower() or "groq" in model_name.lower()) and valid_groq:
+        groq_target = "groq/compound" if ("compound" in model_name.lower() or "groq" in model_name.lower()) else "groq/compound"
         llm = ChatGroq(
-            model_name="llama-3.3-70b-versatile",
+            model_name=groq_target,
             temperature=temperature,
             groq_api_key=groq_api_key
         )
@@ -431,14 +432,14 @@ def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_nam
         )
     elif valid_groq:
         llm = ChatGroq(
-            model_name="llama-3.3-70b-versatile",
+            model_name="groq/compound",
             temperature=temperature,
             groq_api_key=groq_api_key
         )
     else:
-        # 둘 다 없는 경우 Groq 또는 Gemini 기본 객체 생성 (invoke 시점 예외 처리)
+        # 둘 다 없는 경우 Groq 기본 객체 생성 (invoke 시점 예외 처리)
         if "groq" in model_name.lower() or "llama" in model_name.lower():
-            llm = ChatGroq(model_name="llama-3.3-70b-versatile", temperature=temperature, groq_api_key=groq_api_key or "invalid")
+            llm = ChatGroq(model_name="groq/compound", temperature=temperature, groq_api_key=groq_api_key or "invalid")
         else:
             llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=temperature, google_api_key=google_api_key or "invalid", max_retries=1)
 
