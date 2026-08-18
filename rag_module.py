@@ -254,7 +254,7 @@ class ResilientRAGChain:
             }
 
 
-def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_name="llama-3.3-70b-versatile (Groq 100% 무료)", temperature=0.0, distance_threshold=1.45, response_format="간략 요약 모드"):
+def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_name="groq/compound (Groq 100% 무료)", temperature=0.0, distance_threshold=1.45, response_format="간략 요약 모드", custom_llm_config=None):
     """
     업로드된 PDF 문서를 읽어 FAISS 벡터DB 인덱싱 후, LLM 기반 RAG 체인을 구축합니다.
     """
@@ -389,59 +389,83 @@ def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_nam
 
     prompt = ChatPromptTemplate.from_template(template)
 
-    # [7단계] LLM 모델 바인딩 (Groq Llama 3.3, Google Gemini & Ollama 로컬 LLM 온프레미스 지원)
+    # [7단계] LLM 모델 바인딩 (Groq, Gemini, OpenAI, Ollama 및 사용자 커스텀 등록 지원)
     google_api_key = os.getenv("GOOGLE_API_KEY")
     groq_api_key = os.getenv("GROQ_API_KEY")
 
     def is_valid_key(key):
         return bool(key and isinstance(key, str) and not key.startswith("your_") and len(key.strip()) > 10)
 
-    valid_groq = is_valid_key(groq_api_key)
-    valid_google = is_valid_key(google_api_key)
+    # 사용자가 직접 등록한 커스텀 LLM 설정이 전달된 경우
+    if custom_llm_config and isinstance(custom_llm_config, dict):
+        provider = str(custom_llm_config.get("provider", "groq")).lower()
+        c_model = custom_llm_config.get("model_code", "groq/compound") or "groq/compound"
+        c_key = (custom_llm_config.get("api_key") or "").strip()
 
-    if "ollama" in model_name.lower() or "로컬" in model_name.lower():
-        try:
-            from langchain_community.chat_models import ChatOllama
-            llm = ChatOllama(model="llama3:latest", temperature=temperature)
-        except Exception:
-            if valid_groq:
-                llm = ChatGroq(model_name="llama-3.3-70b-versatile", temperature=temperature, groq_api_key=groq_api_key)
-            elif valid_google:
-                llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=temperature, google_api_key=google_api_key)
-            else:
-                llm = ChatGroq(model_name="llama-3.3-70b-versatile", temperature=temperature, groq_api_key=groq_api_key or "invalid")
-    elif ("llama" in model_name.lower() or "groq" in model_name.lower()) and valid_groq:
-        groq_target = "groq/compound" if ("compound" in model_name.lower() or "groq" in model_name.lower()) else "groq/compound"
-        llm = ChatGroq(
-            model_name=groq_target,
-            temperature=temperature,
-            groq_api_key=groq_api_key
-        )
-    elif valid_google:
-        valid_models = {
-            "gemini-2.0-flash": "gemini-2.0-flash",
-            "gemini-1.5-flash": "gemini-1.5-flash",
-            "gemini-1.5-pro": "gemini-1.5-pro"
-        }
-        target_model = valid_models.get(model_name, "gemini-2.0-flash")
-        llm = ChatGoogleGenerativeAI(
-            model=target_model,
-            temperature=temperature,
-            google_api_key=google_api_key,
-            max_retries=1
-        )
-    elif valid_groq:
-        llm = ChatGroq(
-            model_name="groq/compound",
-            temperature=temperature,
-            groq_api_key=groq_api_key
-        )
-    else:
-        # 둘 다 없는 경우 Groq 기본 객체 생성 (invoke 시점 예외 처리)
-        if "groq" in model_name.lower() or "llama" in model_name.lower():
-            llm = ChatGroq(model_name="groq/compound", temperature=temperature, groq_api_key=groq_api_key or "invalid")
+        if "google" in provider or "gemini" in provider:
+            use_key = c_key if is_valid_key(c_key) else google_api_key
+            llm = ChatGoogleGenerativeAI(
+                model=c_model if c_model else "gemini-2.0-flash",
+                temperature=temperature,
+                google_api_key=use_key or "invalid",
+                max_retries=1
+            )
+        elif "openai" in provider:
+            try:
+                from langchain_openai import ChatOpenAI
+                use_key = c_key if is_valid_key(c_key) else os.getenv("OPENAI_API_KEY")
+                llm = ChatOpenAI(
+                    model_name=c_model if c_model else "gpt-4o",
+                    temperature=temperature,
+                    openai_api_key=use_key or "invalid"
+                )
+            except Exception:
+                use_key = c_key if is_valid_key(c_key) else groq_api_key
+                llm = ChatGroq(model_name="groq/compound", temperature=temperature, groq_api_key=use_key or "invalid")
+        elif "ollama" in provider or "로컬" in provider:
+            try:
+                from langchain_community.chat_models import ChatOllama
+                llm = ChatOllama(model=c_model if c_model else "llama3:latest", temperature=temperature)
+            except Exception:
+                use_key = c_key if is_valid_key(c_key) else groq_api_key
+                llm = ChatGroq(model_name="groq/compound", temperature=temperature, groq_api_key=use_key or "invalid")
         else:
-            llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=temperature, google_api_key=google_api_key or "invalid", max_retries=1)
+            use_key = c_key if is_valid_key(c_key) else groq_api_key
+            llm = ChatGroq(
+                model_name=c_model if c_model else "groq/compound",
+                temperature=temperature,
+                groq_api_key=use_key or "invalid"
+            )
+    else:
+        # 기본 내장 모델 바인딩 (Groq/Compound 기본값)
+        valid_groq = is_valid_key(groq_api_key)
+        valid_google = is_valid_key(google_api_key)
+
+        if "ollama" in model_name.lower() or "로컬" in model_name.lower():
+            try:
+                from langchain_community.chat_models import ChatOllama
+                llm = ChatOllama(model="llama3:latest", temperature=temperature)
+            except Exception:
+                llm = ChatGroq(model_name="groq/compound", temperature=temperature, groq_api_key=groq_api_key or "invalid")
+        elif "gemini" in model_name.lower() and valid_google:
+            valid_models = {
+                "gemini-2.0-flash": "gemini-2.0-flash",
+                "gemini-1.5-flash": "gemini-1.5-flash",
+                "gemini-1.5-pro": "gemini-1.5-pro"
+            }
+            target_model = valid_models.get(model_name, "gemini-2.0-flash")
+            llm = ChatGoogleGenerativeAI(
+                model=target_model,
+                temperature=temperature,
+                google_api_key=google_api_key,
+                max_retries=1
+            )
+        else:
+            llm = ChatGroq(
+                model_name="groq/compound",
+                temperature=temperature,
+                groq_api_key=groq_api_key or "invalid"
+            )
 
     print(f"[INFO] Initialized LLM Engine: {type(llm).__name__} (Model: {model_name})", flush=True)
 

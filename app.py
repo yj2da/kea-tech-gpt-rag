@@ -20,6 +20,9 @@ except Exception:
     pass
 
 # Streamlit Session State Multi-Tenant Data Isolation (멘토 피드백 반영)
+if "custom_llm_models" not in st.session_state:
+    st.session_state.custom_llm_models = []
+
 def load_saved_chats():
     if "user_saved_chats" not in st.session_state:
         st.session_state.user_saved_chats = []
@@ -422,7 +425,37 @@ with main_tab1:
             k_value = st.slider("Retriever Top-K", min_value=1, max_value=10, value=3, step=1, help="[참조할 문서 조각 수] 답변 생성 시 읽어올 청크 개수입니다.")
             temperature = st.slider("Temperature", min_value=0.0, max_value=1.0, value=0.0, step=0.1, help="[답변 사실성] 0.0이면 문서 원문에 충실한 사실적 답변만 생성합니다.")
         with col3:
-            model_name = st.selectbox("LLM 모델 선택", ["groq/compound (Groq 100% 무료)", "llama-3.3-70b-versatile (Groq)", "Ollama Llama3 (로컬 On-Premise 지원)", "gemini-2.0-flash", "gemini-1.5-flash"], index=0, help="[AI 분석 모델] 답변 생성에 사용할 AI 모델 버전입니다.")
+            base_model_options = ["groq/compound (Groq 100% 무료)"]
+            custom_model_options = [m["display_name"] for m in st.session_state.custom_llm_models]
+            all_model_options = base_model_options + custom_model_options
+            
+            m_col1, m_col2 = st.columns([0.62, 0.38])
+            with m_col1:
+                model_name = st.selectbox("LLM 모델 선택", all_model_options, index=0, help="[AI 분석 모델] 기본 Groq 모델 또는 등록하신 커스텀 LLM을 선택하세요.")
+            with m_col2:
+                st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
+                with st.popover("➕ LLM 추가", use_container_width=True):
+                    st.markdown("##### 🤖 사용자 커스텀 LLM 등록")
+                    c_name = st.text_input("모델 표시 명칭", placeholder="예: Gemini 2.0 Flash (내 키)", help="목록에 표시될 이름을 입력하세요.")
+                    c_provider = st.selectbox("LLM 제공자 (Provider)", ["Groq", "Google Gemini", "OpenAI", "Ollama / 로컬 On-Premise"])
+                    c_code = st.text_input("실제 API 모델명", placeholder="예: gemini-2.0-flash, gpt-4o, llama3 등")
+                    c_key = st.text_input("API Key (비밀 키)", type="password", placeholder="gsk_..., AIza..., sk-... 등")
+                    
+                    if st.button("💾 LLM 모델 등록 완료", use_container_width=True, type="primary"):
+                        if not c_name.strip() or not c_code.strip():
+                            st.error("모델 표시 명칭과 실제 API 모델명을 입력해 주세요.")
+                        else:
+                            new_custom_model = {
+                                "id": f"custom_llm_{uuid.uuid4().hex[:6]}",
+                                "display_name": f"✨ {c_name.strip()}",
+                                "provider": c_provider,
+                                "model_code": c_code.strip(),
+                                "api_key": c_key.strip()
+                            }
+                            st.session_state.custom_llm_models.append(new_custom_model)
+                            st.toast(f"신규 LLM '{c_name}' 모델이 성공적으로 등록되었습니다!")
+                            st.rerun()
+
             distance_threshold = st.slider("Similarity Threshold", min_value=0.5, max_value=2.0, value=1.45, step=0.05, help="[환각 차단 가드레일] FAISS L2 거리 점수가 이 값을 초과하면 사전 차단합니다.")
         with col4:
             response_format = st.selectbox("답변 출력 양식 선택", ["간략 요약 모드 (직행 답변)", "표준 보고서 모드 (핵심-상세-출처)", "심층 분석 모드 (개요-상세-시사점)"], index=0, help="[답변 서식] 정보 상세도 수준을 결정합니다.")
@@ -450,6 +483,8 @@ with main_tab1:
                     with open(temp_path, "wb") as f:
                         f.write(uploaded_file.getbuffer())
                     
+                    selected_custom_config = next((m for m in st.session_state.custom_llm_models if m["display_name"] == model_name), None)
+
                     rag_chain, retriever, num_chunks, build_time = create_rag_chain(
                         temp_path,
                         chunk_size=chunk_size,
@@ -458,7 +493,8 @@ with main_tab1:
                         model_name=model_name,
                         temperature=temperature,
                         distance_threshold=distance_threshold,
-                        response_format=response_format
+                        response_format=response_format,
+                        custom_llm_config=selected_custom_config
                     )
                     st.session_state.rag_chain = rag_chain
                     st.session_state.retriever = retriever
