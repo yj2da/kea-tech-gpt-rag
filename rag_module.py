@@ -261,9 +261,9 @@ class ResilientRAGChain:
                 s = s.replace("<think>", "")
 
             if "Here's a thinking process" in s or "Analyze User Input" in s:
-                for marker in ["\n\n[KEA", "\n[KEA", "Output:", "Output Generation:", "[Output]:", "\n\n"]:
+                for marker in ["\n\n[KEA", "\n[KEA", "Output:", "Output Generation:", "[Output]:", "\n\n1.", "\n1."]:
                     if marker in s:
-                        idx = s.rfind(marker) if marker == "\n\n" else s.find(marker)
+                        idx = s.find(marker)
                         if idx != -1:
                             candidate = s[idx + len(marker):].strip()
                             if len(candidate) > 5:
@@ -517,7 +517,8 @@ def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_nam
             llm = ChatGroq(
                 model_name=groq_model,
                 temperature=temperature,
-                groq_api_key=groq_api_key or "invalid"
+                groq_api_key=groq_api_key or "invalid",
+                max_tokens=2048
             )
 
     print(f"[INFO] Initialized LLM Engine: {type(llm).__name__} (Model: {model_name})", flush=True)
