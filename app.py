@@ -455,7 +455,7 @@ with main_tab1:
             distance_threshold = st.slider("Similarity Threshold", min_value=0.5, max_value=2.0, value=1.45, step=0.05, help="[환각 차단 가드레일] FAISS L2 거리 점수가 이 값을 초과하면 사전 차단합니다.")
             response_format = st.selectbox("답변 출력 양식 선택", ["간략 요약 모드 (직행 답변)", "표준 보고서 모드 (핵심-상세-출처)", "심층 분석 모드 (개요-상세-시사점)"], index=0, help="[답변 서식] 정보 상세도 수준을 결정합니다.")
         with col4:
-            base_model_options = ["qwen/qwen3.6-27b (Groq 27B 초고속)", "groq/compound-mini (Groq 100% 무료)"]
+            base_model_options = ["groq/compound-mini (Groq 깔끔한 직행 답변)", "qwen/qwen3.6-27b (Groq 27B 추론)"]
             custom_model_options = [m["display_name"] for m in st.session_state.custom_llm_models]
             all_model_options = base_model_options + custom_model_options
             

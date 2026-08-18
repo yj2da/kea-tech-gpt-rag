@@ -529,10 +529,10 @@ def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_nam
                 max_retries=1
             )
         else:
-            if "mini" in model_name.lower() or "compound" in model_name.lower():
-                groq_model = "groq/compound-mini"
-            else:
+            if "qwen" in model_name.lower():
                 groq_model = "qwen/qwen3.6-27b"
+            else:
+                groq_model = "groq/compound-mini"
             llm = ChatGroq(
                 model_name=groq_model,
                 temperature=temperature,
