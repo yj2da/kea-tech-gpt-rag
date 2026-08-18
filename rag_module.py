@@ -252,18 +252,27 @@ class ResilientRAGChain:
                 else:
                     raise first_e
 
-            # <think>...</think> CoT 태그 및 생각 과정 안전 정제
-            raw_text = str(ans)
-            if "<think>" in raw_text and "</think>" in raw_text:
-                ans_clean = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
-            elif "<think>" in raw_text:
-                ans_clean = raw_text.split("<think>")[0].strip()
-            else:
-                ans_clean = raw_text.strip()
-            
-            ans_clean = re.sub(r'</?think>', '', ans_clean, flags=re.IGNORECASE).strip()
+            # <think>...</think> CoT 태그 및 생각 과정 완전 정제
+            s = str(ans)
+            if "</think>" in s:
+                s = s.split("</think>")[-1]
+            if "<think>" in s:
+                s = re.sub(r'<think>.*?</think>', '', s, flags=re.DOTALL)
+                s = s.replace("<think>", "")
+
+            if "Here's a thinking process" in s or "Analyze User Input" in s:
+                for marker in ["\n\n[KEA", "\n[KEA", "Output:", "Output Generation:", "[Output]:", "\n\n"]:
+                    if marker in s:
+                        idx = s.rfind(marker) if marker == "\n\n" else s.find(marker)
+                        if idx != -1:
+                            candidate = s[idx + len(marker):].strip()
+                            if len(candidate) > 5:
+                                s = candidate
+                                break
+
+            ans_clean = re.sub(r'</?think>', '', s, flags=re.IGNORECASE).strip()
             if not ans_clean:
-                ans_clean = raw_text.strip()
+                ans_clean = str(ans).strip()
 
             t_elapsed = time.time() - t0
             print(f"[STATUS] Inference completed successfully in {t_elapsed:.2f}s via {llm_type} (Status: Operational)", flush=True)
