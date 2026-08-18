@@ -252,12 +252,18 @@ class ResilientRAGChain:
                 else:
                     raise first_e
 
-            # <think>...</think> CoT 태그 및 생각 과정 완전 제거/정제
-            ans_clean = str(ans)
-            ans_clean = re.sub(r'<think>.*?</think>', '', ans_clean, flags=re.DOTALL)
-            ans_clean = re.sub(r'<think>.*$', '', ans_clean, flags=re.DOTALL)
-            ans_clean = re.sub(r"^.*?Here's a thinking process:.*?\n", '', ans_clean, flags=re.IGNORECASE | re.DOTALL)
+            # <think>...</think> CoT 태그 및 생각 과정 안전 정제
+            raw_text = str(ans)
+            if "<think>" in raw_text and "</think>" in raw_text:
+                ans_clean = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
+            elif "<think>" in raw_text:
+                ans_clean = raw_text.split("<think>")[0].strip()
+            else:
+                ans_clean = raw_text.strip()
+            
             ans_clean = re.sub(r'</?think>', '', ans_clean, flags=re.IGNORECASE).strip()
+            if not ans_clean:
+                ans_clean = raw_text.strip()
 
             t_elapsed = time.time() - t0
             print(f"[STATUS] Inference completed successfully in {t_elapsed:.2f}s via {llm_type} (Status: Operational)", flush=True)
