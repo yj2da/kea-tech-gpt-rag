@@ -252,7 +252,7 @@ class ResilientRAGChain:
                 else:
                     raise first_e
 
-            # <think>...</think> CoT 태그 및 생각 과정 완전 정제
+            # <think>...</think> CoT 태그 및 영문 생각 과정 완전 정제
             s = str(ans)
             if "</think>" in s:
                 s = s.split("</think>")[-1]
@@ -260,15 +260,32 @@ class ResilientRAGChain:
                 s = re.sub(r'<think>.*?</think>', '', s, flags=re.DOTALL)
                 s = s.replace("<think>", "")
 
-            if "Here's a thinking process" in s or "Analyze User Input" in s:
-                for marker in ["\n\n[KEA", "\n[KEA", "Output:", "Output Generation:", "[Output]:", "\n\n1.", "\n1."]:
-                    if marker in s:
-                        idx = s.find(marker)
-                        if idx != -1:
-                            candidate = s[idx + len(marker):].strip()
-                            if len(candidate) > 5:
-                                s = candidate
-                                break
+            reasoning_indicators = [
+                "Analyze User Input", "Role:", "Task:", "Guidelines:", "Zero-Hallucination:",
+                "Synthesize & Format", "Check against Constraints", "Draft Construction",
+                "Mental Draft", "Self-Correction", "Final check of the prompt", "Here's a thinking process"
+            ]
+
+            if any(ind in s for ind in reasoning_indicators):
+                lines = s.split('\n')
+                clean_lines = []
+                skip_prefixes = (
+                    "Analyze", "Role:", "Task:", "Guidelines:", "Zero-", "100%", "Readability:",
+                    "No page", "Tone:", "Output", "Reference", "Excerpt", "User Question:",
+                    "Map Question", "Synthesize", "Check", "Draft", "Final", "Proceeds", "Self-",
+                    "Core requirement", "Content reality", "Check constraints", "One minor"
+                )
+                for line in lines:
+                    stripped = line.strip()
+                    if not stripped:
+                        continue
+                    if stripped.startswith(skip_prefixes):
+                        continue
+                    if re.search(r'[가-힣]', stripped):
+                        clean_lines.append(stripped)
+
+                if clean_lines:
+                    s = "\n".join(clean_lines)
 
             ans_clean = re.sub(r'</?think>', '', s, flags=re.IGNORECASE).strip()
             if not ans_clean:
@@ -417,7 +434,9 @@ def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_nam
 - **주요 파악 사항 3**: (팩트 중심 세부 내용 서술)"""
 
     # [6단계] Prompt Template 정의
-    template = f"""당신은 한국전자정보통신산업진흥회(KEA) 수석 기술 분석가로서 업로드된 기술 명세서 및 보고서를 바탕으로 정밀 답변을 작성하는 전문가입니다.
+    template = f"""[CRITICAL RULE: DO NOT OUTPUT ANY ENGLISH THINKING PROCESS, "Analyze User Input:", "Role:", "Guidelines:", OR PREAMBLE. OUTPUT ONLY THE FINAL KOREAN ANSWER DIRECTLY.]
+
+당신은 한국전자정보통신산업진흥회(KEA) 수석 기술 분석가로서 업로드된 기술 명세서 및 보고서를 바탕으로 정밀 답변을 작성하는 전문가입니다.
 
 답변 지침:
 1. 근거 기반 분석 (Zero-Hallucination): 아래 제공된 [참고 문서 단락] 내용에만 철저히 근거하여 답변하세요. 문서에 명시되지 않은 사항은 추측하거나 왜곡하지 마세요.
@@ -425,7 +444,7 @@ def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_nam
 3. 가독성 중심 가공: 한눈에 파악하기 쉬운 깔끔한 서식(핵심 한 줄 요약, 항목별 불렛포인트, 볼드체 강조)을 활용하세요.
 4. 페이지 번호 및 출처 문구 작성 금지: 페이지 번호(Page X)나 "참고한 문서의 페이지 번호는..." 같은 출처 문구는 시스템에서 하단 캡션으로 표시하므로 답변 본문에는 절대로 포함하지 마세요.
 5. 어조: 격식 있고 깔끔하며 직관적인 기업 보고서 스타일을 유지하세요. 이모지는 사용하지 마세요.
-6. 사고 과정 및 영문 서문 출력 절대 금지: <think> 태그나 "Here's a thinking process:" 같은 내부 생각 과정이나 영문 설명은 절대로 출력하지 말고, 오직 100% 한국어로 완성된 최종 답변 내용만 출력하세요.
+6. 사고 과정 및 영문 서문 출력 절대 금지: <think> 태그나 "Here's a thinking process:", "Analyze User Input:" 같은 내부 생각 과정이나 영문 설명은 절대로 출력하지 말고, 오직 100% 한국어로 완성된 최종 답변 내용만 출력하세요.
 
 # [참고 문서 단락]:
 {{context}}
