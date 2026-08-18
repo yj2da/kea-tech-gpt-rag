@@ -190,8 +190,14 @@ class ResilientRAGChain:
 
     def invoke(self, user_query, chat_history=None, domain_choice=None):
         """RAG 파이프라인 실행: 맥락 재구성 -> 유사도 검증 -> LLM 질의 또는 안전한 Fallback"""
+        clean_q = user_query.strip().lower()
+        summary_trigger_keywords = ["이 문서 요약", "문서 요약", "요약해줘", "요약", "전체 요약", "요약 부탁", "개요 알려줘"]
+        is_generic_summary = any(kw in clean_q for kw in summary_trigger_keywords) and len(clean_q) < 15
+
         if domain_choice:
             query_for_search = f"{user_query} (선택 분야: {domain_choice})"
+        elif is_generic_summary:
+            query_for_search = "이 기술 문서의 핵심 사업 목적, 사업 내용, 주요 시스템 구성 요소 및 주요 기능 사양 요약"
         else:
             query_for_search = self.contextualize_query(user_query, chat_history)
 
@@ -246,10 +252,13 @@ class ResilientRAGChain:
                 else:
                     raise first_e
 
+            # <think>...</think> CoT 태그 자동 제거 및 정제
+            ans_clean = re.sub(r'<think>.*?</think>', '', str(ans), flags=re.DOTALL).strip()
+
             t_elapsed = time.time() - t0
             print(f"[STATUS] Inference completed successfully in {t_elapsed:.2f}s via {llm_type} (Status: Operational)", flush=True)
             return {
-                "answer": ans,
+                "answer": ans_clean,
                 "docs": docs,
                 "standalone_query": query_for_search,
                 "is_fallback": False,
