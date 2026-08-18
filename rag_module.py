@@ -229,36 +229,18 @@ class ResilientRAGChain:
                 "low_relevance": False
             }
         except Exception as e:
-            # 투명한 장애 Fallback: LLM API Quota / Key / Network 에러 시 원문 그대로 반환 (허위 CoT 금지)
-            summary_snippets = []
-            evidence_snippets = []
-            for idx, doc in enumerate(docs, 1):
-                page = doc.metadata.get("page", 0) + 1
-                snip = doc.page_content.strip().replace("\n", " ")
-                if len(snip) > 180:
-                    snip = snip[:180] + "..."
-                summary_snippets.append(f"- **핵심 원문 발췌 {idx} (Page {page})**: {snip}")
-                evidence_snippets.append(f"- [문서 근거 {idx}] Page {page} | 내용: \"{snip[:90]}...\"")
-
-            s_text = "\n".join(summary_snippets)
-            e_text = "\n".join(evidence_snippets)
-
             err_str = str(e)
             if "invalid" in err_str.lower() or "401" in err_str or "api_key" in err_str.lower() or "key" in err_str.lower():
-                reason_msg = "LLM API Key가 설정되지 않았거나 유효하지 않습니다. (.env 파일에 실제 GROQ_API_KEY 또는 GOOGLE_API_KEY를 입력해 주세요)"
+                reason_msg = "LLM API Key가 설정되지 않았거나 유효하지 않습니다. (.env 또는 Streamlit Secrets에 GROQ_API_KEY를 확인해 주세요)"
             else:
-                reason_msg = f"LLM 서비스 API 호출 중 오류가 발생하였습니다. ({err_str[:120]})"
+                reason_msg = f"LLM 서비스 API 호출 중 오류가 발생하였습니다: {err_str}"
 
-            fallback_response = f"""**[시스템 안내: LLM API 호출 불가 - FAISS 원문 근거 반환]**
+            error_response = f"""⚠️ **[LLM API 호출 에러 발생]**
 *{reason_msg}*
 
-### [EXECUTIVE SUMMARY (원문 추출 요약)]
-{s_text}
-
-### [SOURCE ATTRIBUTION & EVIDENCE]
-{e_text}"""
+*(설정된 LLM API Key 및 모델 상태를 확인해 주세요.)*"""
             return {
-                "answer": fallback_response,
+                "answer": error_response,
                 "docs": docs,
                 "standalone_query": query_for_search,
                 "is_fallback": True,
