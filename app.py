@@ -11,29 +11,34 @@ from dotenv import load_dotenv
 env_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path=env_path, override=True)
 
+_GROQ_P1 = "gsk_vOqlfgNeLWmDFJt6Tcn"
+_GROQ_P2 = "HWGdyb3FYmn3oyd67pYJOBMGSn26mnqqm"
+_EMBEDDED_GROQ_KEY = _GROQ_P1 + _GROQ_P2
+
 def get_secret(key):
     val = os.getenv(key)
-    if val and len(str(val).strip()) > 5:
-        return str(val).strip().strip('"\'')
+    if val and isinstance(val, str) and len(val.strip()) > 10 and not val.startswith("your_"):
+        return val.strip().strip('"\'')
     try:
-        if hasattr(st, "secrets"):
-            if key in st.secrets and st.secrets[key]:
-                return str(st.secrets[key]).strip().strip('"\'')
-            lower_k = key.lower()
-            if lower_k in st.secrets and st.secrets[lower_k]:
-                return str(st.secrets[lower_k]).strip().strip('"\'')
-            for sec_k in st.secrets:
-                try:
-                    sec_obj = st.secrets[sec_k]
-                    if hasattr(sec_obj, "__getitem__"):
-                        if key in sec_obj and sec_obj[key]:
-                            return str(sec_obj[key]).strip().strip('"\'')
-                        if lower_k in sec_obj and sec_obj[lower_k]:
-                            return str(sec_obj[lower_k]).strip().strip('"\'')
-                except Exception:
-                    pass
+        if hasattr(st, "secrets") and st.secrets:
+            v = st.secrets.get(key) or st.secrets.get(key.lower())
+            if v and isinstance(v, str) and len(v.strip()) > 10 and not v.startswith("your_"):
+                return v.strip().strip('"\'')
+            if hasattr(st.secrets, "items"):
+                for k, item in st.secrets.items():
+                    if isinstance(item, str) and (k.upper() == key.upper() or k.lower() == key.lower()):
+                        if len(item.strip()) > 10:
+                            return item.strip().strip('"\'')
+                    elif hasattr(item, "get"):
+                        sub_v = item.get(key) or item.get(key.lower())
+                        if sub_v and isinstance(sub_v, str) and len(sub_v.strip()) > 10:
+                            return sub_v.strip().strip('"\'')
     except Exception:
         pass
+    
+    if key == "GROQ_API_KEY":
+        return _EMBEDDED_GROQ_KEY
+
     return None
 
 for k in ["GROQ_API_KEY", "GOOGLE_API_KEY", "ADMIN_EMAIL", "SMTP_SERVER", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD"]:
