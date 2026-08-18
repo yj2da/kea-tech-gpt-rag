@@ -3,6 +3,7 @@ python-dotenv
 faiss-cpu
 pymupdf
 pypdf
+torchvision
 sentence-transformers
 langchain-community
 langchain-core
