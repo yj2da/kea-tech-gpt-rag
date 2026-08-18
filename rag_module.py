@@ -257,13 +257,12 @@ class ResilientRAGChain:
             }
         except Exception as e:
             err_str = str(e)
-            if "invalid" in err_str.lower() or "401" in err_str or "api_key" in err_str.lower() or "key" in err_str.lower():
-                reason_msg = "LLM API Key가 설정되지 않았거나 유효하지 않습니다. (.env 또는 Streamlit Secrets에 GROQ_API_KEY를 확인해 주세요)"
-            else:
-                reason_msg = f"LLM 서비스 API 호출 중 오류가 발생하였습니다: {err_str}"
-
             error_response = f"""⚠️ **[LLM API 호출 에러 발생]**
-*{reason_msg}*
+*LLM 서비스 API 호출 중 오류가 발생하였습니다:*
+
+```text
+{err_str}
+```
 
 *(설정된 LLM API Key 및 모델 상태를 확인해 주세요.)*"""
             return {
