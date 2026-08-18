@@ -252,8 +252,12 @@ class ResilientRAGChain:
                 else:
                     raise first_e
 
-            # <think>...</think> CoT 태그 자동 제거 및 정제
-            ans_clean = re.sub(r'<think>.*?</think>', '', str(ans), flags=re.DOTALL).strip()
+            # <think>...</think> CoT 태그 및 생각 과정 완전 제거/정제
+            ans_clean = str(ans)
+            ans_clean = re.sub(r'<think>.*?</think>', '', ans_clean, flags=re.DOTALL)
+            ans_clean = re.sub(r'<think>.*$', '', ans_clean, flags=re.DOTALL)
+            ans_clean = re.sub(r"^.*?Here's a thinking process:.*?\n", '', ans_clean, flags=re.IGNORECASE | re.DOTALL)
+            ans_clean = re.sub(r'</?think>', '', ans_clean, flags=re.IGNORECASE).strip()
 
             t_elapsed = time.time() - t0
             print(f"[STATUS] Inference completed successfully in {t_elapsed:.2f}s via {llm_type} (Status: Operational)", flush=True)
@@ -402,10 +406,11 @@ def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_nam
 
 답변 지침:
 1. 근거 기반 분석 (Zero-Hallucination): 아래 제공된 [참고 문서 단락] 내용에만 철저히 근거하여 답변하세요. 문서에 명시되지 않은 사항은 추측하거나 왜곡하지 마세요.
-2. 한국어 답변 작성: 질문 답변, 요약, 상세 설명 등 모든 내용은 **반드시 100% 한국어(Korean)**로 자연스럽고 매끄럽게 작성하세요.
+2. 한국어 답변 작성: 질문 답변, 요약, 상세 설명 등 모든 내용은 **반드시 100% 한국어(Korean)**로 자연스럽고 매끄럽게 작성하세요. 영문이나 생각 과정은 절대로 포함하지 마세요.
 3. 가독성 중심 가공: 한눈에 파악하기 쉬운 깔끔한 서식(핵심 한 줄 요약, 항목별 불렛포인트, 볼드체 강조)을 활용하세요.
 4. 페이지 번호 및 출처 문구 작성 금지: 페이지 번호(Page X)나 "참고한 문서의 페이지 번호는..." 같은 출처 문구는 시스템에서 하단 캡션으로 표시하므로 답변 본문에는 절대로 포함하지 마세요.
 5. 어조: 격식 있고 깔끔하며 직관적인 기업 보고서 스타일을 유지하세요. 이모지는 사용하지 마세요.
+6. 사고 과정 및 영문 서문 출력 절대 금지: <think> 태그나 "Here's a thinking process:" 같은 내부 생각 과정이나 영문 설명은 절대로 출력하지 말고, 오직 100% 한국어로 완성된 최종 답변 내용만 출력하세요.
 
 # [참고 문서 단락]:
 {{context}}
