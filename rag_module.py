@@ -203,10 +203,22 @@ class ResilientRAGChain:
         # LLM 실행 시도 (Gemini 또는 Groq)
         try:
             llm_type = type(self.llm).__name__
-            model_info = getattr(self.llm, 'model_name', getattr(self.llm, 'model', 'Groq Llama 3.3'))
+            model_info = getattr(self.llm, 'model_name', getattr(self.llm, 'model', 'Groq'))
             print(f"\n[INFO] RAG Inference Engine Active: {llm_type} ({model_info})", flush=True)
             t0 = time.time()
-            ans = self.base_chain.invoke(query_for_search)
+
+            # 429 Rate Limit 대비 자동 1회 재시도 (Token Bucket Reset)
+            try:
+                ans = self.base_chain.invoke(query_for_search)
+            except Exception as first_e:
+                err_str = str(first_e)
+                if "429" in err_str or "rate limit" in err_str.lower():
+                    print("[WARNING] 429 Rate Limit detected. Sleeping 2.0 seconds for API quota reset...", flush=True)
+                    time.sleep(2.0)
+                    ans = self.base_chain.invoke(query_for_search)
+                else:
+                    raise first_e
+
             t_elapsed = time.time() - t0
             print(f"[STATUS] Inference completed successfully in {t_elapsed:.2f}s via {llm_type} (Status: Operational)", flush=True)
             return {
@@ -462,7 +474,7 @@ def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_nam
             )
         else:
             llm = ChatGroq(
-                model_name="groq/compound",
+                model_name="llama-3.3-70b-versatile",
                 temperature=temperature,
                 groq_api_key=groq_api_key or "invalid"
             )
