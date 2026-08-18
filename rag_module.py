@@ -455,8 +455,14 @@ def create_rag_chain(pdf_path, chunk_size=400, chunk_overlap=100, k=3, model_nam
                 max_retries=1
             )
         else:
+            if "8b" in model_name.lower() or "instant" in model_name.lower():
+                groq_model = "llama-3.1-8b-instant"
+            elif "qwen" in model_name.lower():
+                groq_model = "qwen/qwen3.6-27b"
+            else:
+                groq_model = "llama-3.3-70b-versatile"
             llm = ChatGroq(
-                model_name="llama-3.3-70b-versatile",
+                model_name=groq_model,
                 temperature=temperature,
                 groq_api_key=groq_api_key or "invalid"
             )
