@@ -11,6 +11,14 @@ from dotenv import load_dotenv
 env_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path=env_path, override=True)
 
+try:
+    if hasattr(st, "secrets"):
+        for key in ["GROQ_API_KEY", "GOOGLE_API_KEY", "ADMIN_EMAIL", "SMTP_SERVER", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD"]:
+            if key in st.secrets and st.secrets[key]:
+                os.environ[key] = str(st.secrets[key])
+except Exception:
+    pass
+
 # Streamlit Session State Multi-Tenant Data Isolation (멘토 피드백 반영)
 def load_saved_chats():
     if "user_saved_chats" not in st.session_state:
@@ -311,6 +319,14 @@ with st.sidebar:
     st.markdown("<h3 style='font-size: 0.95rem; font-weight: 800; margin-top: 14px; margin-bottom: 6px;'>기술 문서 등록</h3>", unsafe_allow_html=True)
     uploaded_file = st.file_uploader("PDF 문서 선택", type=['pdf'], label_visibility="collapsed")
     
+    with st.expander("🔑 API Key 설정 (Groq / Gemini)", expanded=not bool(os.getenv("GROQ_API_KEY"))):
+        user_groq_key = st.text_input("Groq API Key", value=os.getenv("GROQ_API_KEY", ""), type="password", help="gsk_로 시작하는 Groq API 키를 입력하세요.")
+        if user_groq_key:
+            os.environ["GROQ_API_KEY"] = user_groq_key.strip()
+        user_gemini_key = st.text_input("Google Gemini API Key", value=os.getenv("GOOGLE_API_KEY", ""), type="password", help="Gemini API 키를 입력하세요.")
+        if user_gemini_key:
+            os.environ["GOOGLE_API_KEY"] = user_gemini_key.strip()
+
     st.divider()
 
     st.markdown("<div style='font-size: 0.85rem; font-weight: 800; color: #475569; margin-bottom: 8px;'>최근</div>", unsafe_allow_html=True)

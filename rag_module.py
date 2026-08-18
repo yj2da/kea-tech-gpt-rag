@@ -14,9 +14,18 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 
-# [1단계] 환경 변수 로드 (.env 파일에서 GOOGLE_API_KEY 및 GROQ_API_KEY 불러오기)
+# [1단계] 환경 변수 로드 (.env 및 Streamlit Secrets 지원)
 env_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path=env_path, override=True)
+
+try:
+    import streamlit as st
+    if hasattr(st, "secrets"):
+        for key in ["GROQ_API_KEY", "GOOGLE_API_KEY", "ADMIN_EMAIL", "SMTP_SERVER", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD"]:
+            if key in st.secrets and st.secrets[key]:
+                os.environ[key] = str(st.secrets[key])
+except Exception:
+    pass
 
 class ResilientRAGChain:
     """
